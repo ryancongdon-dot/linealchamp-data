@@ -42,7 +42,10 @@ import requests
 
 from lineage import Game, norm
 
-SEED_TEAM = norm("PHW")  # Philadelphia Warriors — 1947 BAA Finals winner
+# BDL renames historical franchises to their modern abbreviations (1947 PHW
+# games are stored under GSW). Rather than guess what BDL calls the BAA's
+# inaugural champ, let the first game's winner seed the lineage.
+SEED_TEAM = None
 SEED_DATE = "1947-04-22"
 
 BDL_URL = "https://api.balldontlie.io/v1/games"

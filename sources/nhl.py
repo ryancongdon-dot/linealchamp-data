@@ -33,10 +33,10 @@ from bs4 import BeautifulSoup
 
 from lineage import Game, norm
 
-SEED_TEAM = norm("MTL")  # Montreal Canadiens (Wanderers won the first game, but
-                          # franchise folded mid-season after their arena burned;
-                          # Canadiens are the conventional NHL lineal seed.)
-SEED_DATE = "1917-12-19"  # first NHL game played
+# hockey-reference uses full team names ("Montreal Canadiens") not abbrevs;
+# let the first game's winner seed so we don't have to guess the exact spelling.
+SEED_TEAM = None
+SEED_DATE = "1917-12-19"
 
 HR_URL_TMPL = "https://www.hockey-reference.com/leagues/NHL_{year}_games.html"
 CRAWL_DELAY = 3.0

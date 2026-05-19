@@ -79,9 +79,10 @@ def build_one_league(league: str, as_of: str) -> dict:
 
     seed_team = getattr(src, "SEED_TEAM", None)
     seed_date = getattr(src, "SEED_DATE", None)
+    vacancy_days = getattr(src, "VACANCY_DAYS", None)
 
     current, changes, events = compute_lineage(
-        games, seed_team=seed_team, seed_date=seed_date
+        games, seed_team=seed_team, seed_date=seed_date, vacancy_days=vacancy_days
     )
 
     lineage_payload = {

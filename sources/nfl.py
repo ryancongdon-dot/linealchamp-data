@@ -42,13 +42,21 @@ from bs4 import BeautifulSoup
 
 from lineage import Game, norm
 
-SEED_TEAM = norm("Akron Pros")  # 1920 APFA inaugural champion (conventional NFL lineal seed)
-SEED_DATE = "1920-09-26"  # first APFA game date
+# Let the first game's winner seed (PFR uses full team names with city changes).
+SEED_TEAM = None
+SEED_DATE = "1920-09-26"
 
 PFR_URL_TMPL = "https://www.pro-football-reference.com/years/{year}/games.htm"
-CRAWL_DELAY = 3.0
+CRAWL_DELAY = 3.5
+# PFR's WAF blocks custom user-agents with HTTP 403. Use a real browser UA.
 HEADERS = {
-    "User-Agent": "linealchamp-data/1.0 (https://linealchamp-api.ryan-congdon.workers.dev/ one-time historical backfill)"
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml",
+    "Accept-Language": "en-US,en;q=0.9",
 }
 
 VALID_WEEK_RE = re.compile(

@@ -39,8 +39,11 @@ import requests
 
 from lineage import Game, norm
 
-SEED_TEAM = norm("PH1")  # Philadelphia Athletics, 1871 NA Champions
+SEED_TEAM = None  # first 1871 winner seeds the lineage
 SEED_DATE = "1871-05-04"
+# When champ goes silent for 1 year (defunct franchise, Retrosheet code change),
+# vacate the belt and assign to the next game's winner.
+VACANCY_DAYS = 365
 
 GAMELOG_URL_TMPL = "https://www.retrosheet.org/gamelogs/gl{year}.zip"
 HEADERS = {"User-Agent": "linealchamp/1.0 (one-time historical backfill)"}
