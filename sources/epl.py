@@ -65,19 +65,38 @@ def _fetch_teams(cache_dir: Path) -> dict[int, str]:
         except Exception:
             pass
 
-    all_teams: list[dict] = []
-    # /epl/v1/teams returns 400 with per_page; just call it with no params.
-    r = requests.get(BDL_TEAMS_URL, headers=_headers(), timeout=30)
-    if r.status_code == 429:
-        time.sleep(8)
-        r = requests.get(BDL_TEAMS_URL, headers=_headers(), timeout=30)
-    if r.status_code >= 400:
-        # Surface the body so we can see what BDL is complaining about.
-        raise RuntimeError(
-            f"BDL EPL /teams returned {r.status_code}: {r.text[:300]}"
-        )
-    j = r.json()
-    all_teams.extend(j.get("data", []) if isinstance(j, dict) else j)
+    # /epl/v1/teams requires a season param and returns only that season's 20
+    # clubs. Walk every EPL season so relegated/historical clubs are included.
+    by_id: dict[int, dict] = {}
+    for season in range(1992, 2025):
+        for attempt in range(3):
+            r = requests.get(
+                BDL_TEAMS_URL,
+                params={"season": str(season)},
+                headers=_headers(),
+                timeout=30,
+            )
+            if r.status_code == 429:
+                time.sleep(8)
+                continue
+            if r.status_code >= 400:
+                # Some seasons may legitimately error; skip and continue.
+                print(
+                    f"    EPL /teams season {season}: {r.status_code} {r.text[:120]}",
+                    flush=True,
+                )
+                break
+            j = r.json()
+            data = j.get("data", []) if isinstance(j, dict) else j
+            for t in data:
+                tid = t.get("id")
+                if tid is not None:
+                    by_id[int(tid)] = t
+            time.sleep(RATE_DELAY_SEC)
+            break
+    all_teams = list(by_id.values())
+    if not all_teams:
+        raise RuntimeError("BDL EPL /teams returned no usable data across any season")
 
     cf.write_text(json.dumps(all_teams))
     return {int(t["id"]): _team_name(t) for t in all_teams}
