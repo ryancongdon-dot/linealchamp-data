@@ -66,23 +66,18 @@ def _fetch_teams(cache_dir: Path) -> dict[int, str]:
             pass
 
     all_teams: list[dict] = []
-    cursor: Optional[str] = None
-    while True:
-        params = {"per_page": "100"}
-        if cursor is not None:
-            params["cursor"] = str(cursor)
-        r = requests.get(BDL_TEAMS_URL, params=params, headers=_headers(), timeout=30)
-        if r.status_code == 429:
-            time.sleep(8)
-            continue
-        r.raise_for_status()
-        j = r.json()
-        all_teams.extend(j.get("data", []))
-        nxt = (j.get("meta") or {}).get("next_cursor")
-        if not nxt:
-            break
-        cursor = nxt
-        time.sleep(RATE_DELAY_SEC)
+    # /epl/v1/teams returns 400 with per_page; just call it with no params.
+    r = requests.get(BDL_TEAMS_URL, headers=_headers(), timeout=30)
+    if r.status_code == 429:
+        time.sleep(8)
+        r = requests.get(BDL_TEAMS_URL, headers=_headers(), timeout=30)
+    if r.status_code >= 400:
+        # Surface the body so we can see what BDL is complaining about.
+        raise RuntimeError(
+            f"BDL EPL /teams returned {r.status_code}: {r.text[:300]}"
+        )
+    j = r.json()
+    all_teams.extend(j.get("data", []) if isinstance(j, dict) else j)
 
     cf.write_text(json.dumps(all_teams))
     return {int(t["id"]): _team_name(t) for t in all_teams}

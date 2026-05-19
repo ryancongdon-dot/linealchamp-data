@@ -33,10 +33,11 @@ from bs4 import BeautifulSoup
 
 from lineage import Game, norm
 
-# hockey-reference uses full team names ("Montreal Canadiens") not abbrevs;
-# let the first game's winner seed so we don't have to guess the exact spelling.
 SEED_TEAM = None
 SEED_DATE = "1917-12-19"
+# Early NHL had many short-lived franchises (Quebec Bulldogs, Hamilton Tigers,
+# etc.) — vacate after 1 year of inactivity so the belt doesn't get stranded.
+VACANCY_DAYS = 365
 
 HR_URL_TMPL = "https://www.hockey-reference.com/leagues/NHL_{year}_games.html"
 CRAWL_DELAY = 3.0
