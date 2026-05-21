@@ -106,6 +106,7 @@ def compute_lineage(
     games: Iterable[Game],
     seed_team: Optional[str] = None,
     seed_date: Optional[str] = None,
+    vacancy_days: Optional[int] = None,
 ) -> tuple[Optional[str], list[Change], list[Event]]:
     """
     Returns (current_champ, changes, events).
@@ -151,13 +152,45 @@ def compute_lineage(
     if champ is None:
         return None, [], []
 
+    last_seen: Optional[datetime] = None
     for g in games:
         w = winner(g)
         if w is None:
             continue
         h_id, a_id = g.home_id, g.away_id
+
+        # Vacancy handling: if the current champ has been silent for vacancy_days,
+        # treat the next game as a re-seed. Used for MLB to escape stranding on
+        # defunct 19th-century franchises (Fort Wayne, etc.).
+        if vacancy_days is not None and last_seen is not None and champ not in (h_id, a_id):
+            try:
+                g_date = datetime.fromisoformat(g.date.replace("Z", "+00:00"))
+            except Exception:
+                g_date = None
+            if g_date and (g_date - last_seen).days > vacancy_days:
+                changes.append(
+                    Change(
+                        date=_iso(g.date),
+                        gameId=g.id,
+                        from_team=champ,
+                        to_team=w,
+                        score=_score(g),
+                    )
+                )
+                champ = w
+                try:
+                    last_seen = datetime.fromisoformat(g.date.replace("Z", "+00:00"))
+                except Exception:
+                    pass
+                continue
+
         if champ != h_id and champ != a_id:
             continue
+
+        try:
+            last_seen = datetime.fromisoformat(g.date.replace("Z", "+00:00"))
+        except Exception:
+            pass
 
         opp = a_id if champ == h_id else h_id
         champ_score = g.home_score if champ == h_id else g.away_score

@@ -42,8 +42,13 @@ import requests
 
 from lineage import Game, norm
 
-SEED_TEAM = norm("PHW")  # Philadelphia Warriors — 1947 BAA Finals winner
-SEED_DATE = "1947-04-22"
+# BDL renames historical franchises to their modern abbreviations (1947 PHW
+# games are stored under GSW). Rather than guess what BDL calls the BAA's
+# inaugural champ, let the first game's winner seed the lineage.
+SEED_TEAM = None  # first-game-winner; with SEED_DATE = 1948 BAA Finals Game 6
+SEED_DATE = "1948-04-21"  # BDL data starts Nov 1947 so 1947 BAA Finals isn't available;
+                          # 1948 Finals Game 6 (Baltimore Bullets clinched) is the first
+                          # championship in our records.
 
 BDL_URL = "https://api.balldontlie.io/v1/games"
 RATE_DELAY_SEC = 0.4

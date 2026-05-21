@@ -33,10 +33,10 @@ from bs4 import BeautifulSoup
 
 from lineage import Game, norm
 
-SEED_TEAM = norm("MTL")  # Montreal Canadiens (Wanderers won the first game, but
-                          # franchise folded mid-season after their arena burned;
-                          # Canadiens are the conventional NHL lineal seed.)
-SEED_DATE = "1917-12-19"  # first NHL game played
+SEED_TEAM = None  # first-game-winner; with SEED_DATE = first Stanley Cup Final Game 5
+SEED_DATE = "1918-03-30"  # 1918 Stanley Cup (Toronto Arenas) — first NHL champion
+# Vacancy rule remains for any future franchise stranding (rare post-1942).
+VACANCY_DAYS = 365
 
 HR_URL_TMPL = "https://www.hockey-reference.com/leagues/NHL_{year}_games.html"
 CRAWL_DELAY = 3.0
