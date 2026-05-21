@@ -33,10 +33,9 @@ from bs4 import BeautifulSoup
 
 from lineage import Game, norm
 
-SEED_TEAM = None
-SEED_DATE = "1917-12-19"
-# Early NHL had many short-lived franchises (Quebec Bulldogs, Hamilton Tigers,
-# etc.) — vacate after 1 year of inactivity so the belt doesn't get stranded.
+SEED_TEAM = None  # first-game-winner; with SEED_DATE = first Stanley Cup Final Game 5
+SEED_DATE = "1918-03-30"  # 1918 Stanley Cup (Toronto Arenas) — first NHL champion
+# Vacancy rule remains for any future franchise stranding (rare post-1942).
 VACANCY_DAYS = 365
 
 HR_URL_TMPL = "https://www.hockey-reference.com/leagues/NHL_{year}_games.html"

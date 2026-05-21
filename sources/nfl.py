@@ -30,8 +30,8 @@ import requests
 
 from lineage import Game, norm
 
-SEED_TEAM = None  # first 2002 game winner
-SEED_DATE = "2002-09-05"  # 2002 season opener — earliest BDL NFL data
+SEED_TEAM = None  # first-game-winner; with SEED_DATE = Super Bowl XXXVII
+SEED_DATE = "2003-01-26"  # SB XXXVII (Tampa Bay Buccaneers); first championship in BDL data
 
 BDL_URL = "https://api.balldontlie.io/nfl/v1/games"
 RATE_DELAY_SEC = 0.5

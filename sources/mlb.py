@@ -39,10 +39,9 @@ import requests
 
 from lineage import Game, norm
 
-SEED_TEAM = None  # first 1871 winner seeds the lineage
-SEED_DATE = "1871-05-04"
-# When champ goes silent for 1 year (defunct franchise, Retrosheet code change),
-# vacate the belt and assign to the next game's winner.
+SEED_TEAM = None  # first-game-winner; with SEED_DATE = first World Series Game 8
+SEED_DATE = "1903-10-13"  # First World Series Game 8 (Boston Americans clinched 5-3)
+# Vacancy rule still applies for any future franchise stranding.
 VACANCY_DAYS = 365
 
 GAMELOG_URL_TMPL = "https://www.retrosheet.org/gamelogs/gl{year}.zip"
