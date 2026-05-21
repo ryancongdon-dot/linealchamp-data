@@ -51,7 +51,7 @@ export default {
     try {
       // ─── Public read endpoints ─────────────────────────────────────────
       if (url.pathname === "/api/leagues") {
-        return cors.json({ leagues: SUPPORTED_LEAGUES.map(l => l.key) });
+        return cors.cachedJson({ leagues: SUPPORTED_LEAGUES.map(l => l.key) }, 200, 3600);
       }
 
       if (url.pathname === "/api/lineage") {
@@ -60,7 +60,7 @@ export default {
         if (!lineage.currentChamp && lineage.changes.length === 0) {
           return cors.json({ error: "No data yet. Run build_lineage.py and upload_to_worker.py." }, 404);
         }
-        return cors.json(lineage);
+        return cors.cachedJson(lineage);
       }
 
       if (url.pathname === "/api/events") {
@@ -70,12 +70,12 @@ export default {
 
       if (url.pathname === "/api/stats") {
         const league = leagueFrom(url); guardLeague(league);
-        return cors.json(await computeStatsFromLineage(league, env));
+        return cors.cachedJson(await computeStatsFromLineage(league, env));
       }
 
       if (url.pathname === "/api/brand") {
         const league = leagueFrom(url); guardLeague(league);
-        return cors.json(await loadBrand(env, league));
+        return cors.cachedJson(await loadBrand(env, league), 200, 3600);
       }
 
       // ─── Admin: lineage upload / status ─────────────────────────────────
@@ -823,6 +823,10 @@ function makeCORS(env) {
   });
   return {
     json: (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: headers() }),
+    cachedJson: (obj, status = 200, maxAge = 300) => new Response(JSON.stringify(obj), {
+      status,
+      headers: headers({ "cache-control": `public, max-age=${maxAge}` }),
+    }),
     text: (t, status = 200) => new Response(t, { status, headers: headers({ "content-type": "text/plain; charset=utf-8" }) }),
     headers,
   };
