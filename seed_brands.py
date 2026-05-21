@@ -1,0 +1,626 @@
+#!/usr/bin/env python3
+"""
+seed_brands.py — bulk-upload team display names, colors, and logos to the Worker.
+
+Reads every code that appears in output/lineage-<LEAGUE>.json and POSTs a brand
+entry to /admin/brand/set for each. Historical / unmapped codes get a
+prettified name and a neutral color but no logo.
+
+Run:
+    export ADMIN_SECRET=...   # same one the Worker has
+    python seed_brands.py     # writes to KV via the live Worker
+    python seed_brands.py --dry-run   # print what would be sent, don't post
+
+ESPN CDN is used for logos where the team has a stable ESPN slug. URLs are
+hot-linked at runtime by browsers, so they need to remain valid.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import time
+from pathlib import Path
+from typing import Optional
+
+import requests
+
+WORKER_URL = "https://linealchamp-api.ryan-congdon.workers.dev"
+ROOT = Path(__file__).resolve().parent
+OUTPUT_DIR = ROOT / "output"
+
+ESPN = "https://a.espncdn.com/i/teamlogos/{sport}/500/{slug}.png"
+
+# ─── NBA ────────────────────────────────────────────────────────────────────
+# BDL NBA uses standard NBA abbreviations. ESPN slugs are lowercase.
+NBA = {
+    "ATL": ("Atlanta Hawks", "#E03A3E", "atl"),
+    "BOS": ("Boston Celtics", "#007A33", "bos"),
+    "BKN": ("Brooklyn Nets", "#000000", "bkn"),
+    "CHA": ("Charlotte Hornets", "#1D1160", "cha"),
+    "CHI": ("Chicago Bulls", "#CE1141", "chi"),
+    "CLE": ("Cleveland Cavaliers", "#860038", "cle"),
+    "DAL": ("Dallas Mavericks", "#00538C", "dal"),
+    "DEN": ("Denver Nuggets", "#0E2240", "den"),
+    "DET": ("Detroit Pistons", "#C8102E", "det"),
+    "GSW": ("Golden State Warriors", "#1D428A", "gs"),
+    "HOU": ("Houston Rockets", "#CE1141", "hou"),
+    "IND": ("Indiana Pacers", "#002D62", "ind"),
+    "LAC": ("LA Clippers", "#C8102E", "lac"),
+    "LAL": ("Los Angeles Lakers", "#552583", "lal"),
+    "MEM": ("Memphis Grizzlies", "#5D76A9", "mem"),
+    "MIA": ("Miami Heat", "#98002E", "mia"),
+    "MIL": ("Milwaukee Bucks", "#00471B", "mil"),
+    "MIN": ("Minnesota Timberwolves", "#0C2340", "min"),
+    "NOP": ("New Orleans Pelicans", "#0C2340", "no"),
+    "NYK": ("New York Knicks", "#006BB6", "ny"),
+    "OKC": ("Oklahoma City Thunder", "#007AC1", "okc"),
+    "ORL": ("Orlando Magic", "#0077C0", "orl"),
+    "PHI": ("Philadelphia 76ers", "#006BB6", "phi"),
+    "PHX": ("Phoenix Suns", "#1D1160", "phx"),
+    "POR": ("Portland Trail Blazers", "#E03A3E", "por"),
+    "SAC": ("Sacramento Kings", "#5A2D81", "sac"),
+    "SAS": ("San Antonio Spurs", "#C4CED4", "sa"),
+    "TOR": ("Toronto Raptors", "#CE1141", "tor"),
+    "UTA": ("Utah Jazz", "#002B5C", "utah"),
+    "WAS": ("Washington Wizards", "#002B5C", "wsh"),
+    # Historical / defunct
+    "BAL": ("Baltimore Bullets (BAA)", "#444", None),
+    "PHW": ("Philadelphia Warriors", "#444", None),
+    "MNL": ("Minneapolis Lakers", "#444", None),
+    "SYR": ("Syracuse Nationals", "#444", None),
+    "FTW": ("Fort Wayne Pistons", "#444", None),
+    "STL": ("St. Louis Hawks", "#444", None),
+    "KCK": ("Kansas City Kings", "#444", None),
+    "SDC": ("San Diego Clippers", "#444", None),
+    "BUF": ("Buffalo Braves", "#444", None),
+    "SEA": ("Seattle SuperSonics", "#444", None),
+    "VAN": ("Vancouver Grizzlies", "#444", None),
+    "NJN": ("New Jersey Nets", "#444", None),
+    "NOH": ("New Orleans Hornets", "#444", None),
+    "WSB": ("Washington Bullets", "#444", None),
+    "CHH": ("Charlotte Hornets (1988-2002)", "#444", None),
+    "TRI": ("Tri-Cities Blackhawks", "#444", None),
+    "SHE": ("Sheboygan Red Skins", "#444", None),
+    "AND": ("Anderson Packers", "#444", None),
+    "WAT": ("Waterloo Hawks", "#444", None),
+    "INO": ("Indianapolis Olympians", "#444", None),
+    "DNN": ("Denver Nuggets (NBL)", "#444", None),
+    "PRO": ("Providence Steamrollers", "#444", None),
+    "TOR (HUSKIES)": ("Toronto Huskies", "#444", None),
+    "STB": ("St. Louis Bombers", "#444", None),
+    "CHS": ("Chicago Stags", "#444", None),
+    "CLR": ("Cleveland Rebels", "#444", None),
+    "PIT": ("Pittsburgh Ironmen", "#444", None),
+    "DTF": ("Detroit Falcons", "#444", None),
+}
+
+# ─── NFL ────────────────────────────────────────────────────────────────────
+NFL = {
+    "ARI": ("Arizona Cardinals", "#97233F", "ari"),
+    "ATL": ("Atlanta Falcons", "#A71930", "atl"),
+    "BAL": ("Baltimore Ravens", "#241773", "bal"),
+    "BUF": ("Buffalo Bills", "#00338D", "buf"),
+    "CAR": ("Carolina Panthers", "#0085CA", "car"),
+    "CHI": ("Chicago Bears", "#0B162A", "chi"),
+    "CIN": ("Cincinnati Bengals", "#FB4F14", "cin"),
+    "CLE": ("Cleveland Browns", "#311D00", "cle"),
+    "DAL": ("Dallas Cowboys", "#003594", "dal"),
+    "DEN": ("Denver Broncos", "#FB4F14", "den"),
+    "DET": ("Detroit Lions", "#0076B6", "det"),
+    "GB":  ("Green Bay Packers", "#203731", "gb"),
+    "HOU": ("Houston Texans", "#03202F", "hou"),
+    "IND": ("Indianapolis Colts", "#002C5F", "ind"),
+    "JAX": ("Jacksonville Jaguars", "#101820", "jax"),
+    "KC":  ("Kansas City Chiefs", "#E31837", "kc"),
+    "LAC": ("Los Angeles Chargers", "#0080C6", "lac"),
+    "LAR": ("Los Angeles Rams", "#003594", "lar"),
+    "LV":  ("Las Vegas Raiders", "#000000", "lv"),
+    "MIA": ("Miami Dolphins", "#008E97", "mia"),
+    "MIN": ("Minnesota Vikings", "#4F2683", "min"),
+    "NE":  ("New England Patriots", "#002244", "ne"),
+    "NO":  ("New Orleans Saints", "#D3BC8D", "no"),
+    "NYG": ("New York Giants", "#0B2265", "nyg"),
+    "NYJ": ("New York Jets", "#125740", "nyj"),
+    "PHI": ("Philadelphia Eagles", "#004C54", "phi"),
+    "PIT": ("Pittsburgh Steelers", "#FFB612", "pit"),
+    "SEA": ("Seattle Seahawks", "#002244", "sea"),
+    "SF":  ("San Francisco 49ers", "#AA0000", "sf"),
+    "TB":  ("Tampa Bay Buccaneers", "#D50A0A", "tb"),
+    "TEN": ("Tennessee Titans", "#0C2340", "ten"),
+    "WAS": ("Washington Commanders", "#5A1414", "wsh"),
+    # Pre-2020 names that may appear
+    "OAK": ("Oakland Raiders", "#444", None),
+    "SD":  ("San Diego Chargers", "#444", None),
+    "STL": ("St. Louis Rams", "#444", None),
+}
+
+# ─── MLB ────────────────────────────────────────────────────────────────────
+# Retrosheet codes. The first letter pair is the city, third is league
+# (A=American, N=National, etc.). Many codes belong to defunct franchises.
+MLB = {
+    # Current 30 — Retrosheet → ESPN slug
+    "ANA": ("Los Angeles Angels", "#BA0021", "laa"),   # Anaheim
+    "ARI": ("Arizona Diamondbacks", "#A71930", "ari"),
+    "ATL": ("Atlanta Braves", "#CE1141", "atl"),
+    "BAL": ("Baltimore Orioles", "#DF4601", "bal"),
+    "BOS": ("Boston Red Sox", "#BD3039", "bos"),
+    "CHA": ("Chicago White Sox", "#27251F", "chw"),
+    "CHN": ("Chicago Cubs", "#0E3386", "chc"),
+    "CIN": ("Cincinnati Reds", "#C6011F", "cin"),
+    "CLE": ("Cleveland Guardians", "#00385D", "cle"),
+    "COL": ("Colorado Rockies", "#333366", "col"),
+    "DET": ("Detroit Tigers", "#0C2340", "det"),
+    "HOU": ("Houston Astros", "#EB6E1F", "hou"),
+    "KCA": ("Kansas City Royals", "#004687", "kc"),
+    "LAN": ("Los Angeles Dodgers", "#005A9C", "lad"),
+    "MIA": ("Miami Marlins", "#00A3E0", "mia"),
+    "MIL": ("Milwaukee Brewers", "#12284B", "mil"),
+    "MIN": ("Minnesota Twins", "#002B5C", "min"),
+    "NYA": ("New York Yankees", "#003087", "nyy"),
+    "NYN": ("New York Mets", "#002D72", "nym"),
+    "OAK": ("Oakland Athletics", "#003831", "oak"),
+    "PHI": ("Philadelphia Phillies", "#E81828", "phi"),
+    "PIT": ("Pittsburgh Pirates", "#27251F", "pit"),
+    "SDN": ("San Diego Padres", "#2F241D", "sd"),
+    "SEA": ("Seattle Mariners", "#0C2C56", "sea"),
+    "SFN": ("San Francisco Giants", "#FD5A1E", "sf"),
+    "SLN": ("St. Louis Cardinals", "#C41E3A", "stl"),
+    "TBA": ("Tampa Bay Rays", "#092C5C", "tb"),
+    "TEX": ("Texas Rangers", "#003278", "tex"),
+    "TOR": ("Toronto Blue Jays", "#134A8E", "tor"),
+    "WAS": ("Washington Nationals", "#AB0003", "wsh"),
+    # Defunct / pre-modern (no logos)
+    "PH1": ("Philadelphia Athletics (NA)", "#444", None),
+    "BS1": ("Boston Red Stockings", "#444", None),
+    "WS3": ("Washington Olympics", "#444", None),
+    "NY2": ("New York Mutuals", "#444", None),
+    "FW1": ("Fort Wayne Kekiongas", "#444", None),
+    "CH1": ("Chicago White Stockings (NA)", "#444", None),
+    "CL1": ("Cleveland Forest Citys", "#444", None),
+    "RC1": ("Rockford Forest Citys", "#444", None),
+    "TRO": ("Troy Haymakers", "#444", None),
+    "BR1": ("Brooklyn Eckfords", "#444", None),
+    "BR2": ("Brooklyn Atlantics", "#444", None),
+    "MID": ("Middletown Mansfields", "#444", None),
+    "WS4": ("Washington Nationals (NA)", "#444", None),
+    "WS5": ("Washington Blue Legs", "#444", None),
+    "BSN": ("Boston Braves", "#444", None),
+    "BSP": ("Boston Beaneaters", "#444", None),
+    "BRO": ("Brooklyn Dodgers", "#444", None),
+    "NY1": ("New York Giants", "#444", None),
+    "PHA": ("Philadelphia Athletics (AL)", "#444", None),
+    "SLA": ("St. Louis Browns", "#444", None),
+    "WS1": ("Washington Senators (1901-60)", "#444", None),
+    "WS2": ("Washington Senators (1961-71)", "#444", None),
+    "WAS1": ("Washington Senators", "#444", None),
+    "KC1": ("Kansas City Athletics", "#444", None),
+    "ML1": ("Milwaukee Braves", "#444", None),
+    "ML4": ("Milwaukee Brewers (1969+)", "#444", None),
+    "MON": ("Montreal Expos", "#444", None),
+    "CAL": ("California Angels", "#444", None),
+    "FLA": ("Florida Marlins", "#444", None),
+    "TBR": ("Tampa Bay Devil Rays", "#444", None),
+    "ALT": ("Altoona Mountain Citys", "#444", None),
+    "BL1": ("Baltimore Canaries", "#444", None),
+    "BL2": ("Baltimore Lord Baltimores", "#444", None),
+    "BL3": ("Baltimore Orioles (AA)", "#444", None),
+    "BL4": ("Baltimore Monumentals", "#444", None),
+    "BLU": ("Buffalo Bisons", "#444", None),
+    "BR3": ("Brooklyn Grays", "#444", None),
+    "BR4": ("Brooklyn Wonders", "#444", None),
+    "BUF": ("Buffalo Bisons (NL)", "#444", None),
+    "CIN1": ("Cincinnati Red Stockings", "#444", None),
+    "CL2": ("Cleveland Blues", "#444", None),
+    "CL3": ("Cleveland Spiders", "#444", None),
+    "CL4": ("Cleveland Infants", "#444", None),
+    "CL5": ("Cleveland Blues (PL)", "#444", None),
+    "CN2": ("Cincinnati Kelly's Killers", "#444", None),
+    "DTN": ("Detroit Wolverines", "#444", None),
+    "ELI": ("Elizabeth Resolutes", "#444", None),
+    "HAR": ("Hartford Dark Blues", "#444", None),
+    "IN1": ("Indianapolis Blues", "#444", None),
+    "IN2": ("Indianapolis Hoosiers (UA)", "#444", None),
+    "IN3": ("Indianapolis Hoosiers (NL)", "#444", None),
+    "KEO": ("Keokuk Westerns", "#444", None),
+    "LS1": ("Louisville Grays", "#444", None),
+    "LS2": ("Louisville Colonels (AA)", "#444", None),
+    "LS3": ("Louisville Colonels (NL)", "#444", None),
+    "MIL1": ("Milwaukee Cream Citys", "#444", None),
+    "MLA": ("Milwaukee Brewers (AL)", "#444", None),
+    "MLU": ("Milwaukee Brewers (UA)", "#444", None),
+    "NEW": ("Newark Pepper", "#444", None),
+    "NWK": ("Newark Domestics", "#444", None),
+    "NH1": ("New Haven Elm Citys", "#444", None),
+    "NYP": ("New York Metropolitans", "#444", None),
+    "PH2": ("Philadelphia Whites", "#444", None),
+    "PH3": ("Philadelphia Centennials", "#444", None),
+    "PH4": ("Philadelphia Athletics (AA)", "#444", None),
+    "PH5": ("Philadelphia Keystones", "#444", None),
+    "PHI1": ("Philadelphia Quakers", "#444", None),
+    "PHU": ("Philadelphia Keystones (UA)", "#444", None),
+    "PHP": ("Philadelphia Athletics (PL)", "#444", None),
+    "PIU": ("Pittsburgh Stogies", "#444", None),
+    "PRO": ("Providence Grays", "#444", None),
+    "RIC": ("Richmond Virginians", "#444", None),
+    "SLU": ("St. Louis Maroons (UA)", "#444", None),
+    "SR1": ("Syracuse Stars (NL)", "#444", None),
+    "SR2": ("Syracuse Stars (AA)", "#444", None),
+    "SE1": ("St. Paul White Caps", "#444", None),
+    "TL1": ("Toledo Blue Stockings", "#444", None),
+    "TL2": ("Toledo Maumees", "#444", None),
+    "WIL": ("Wilmington Quicksteps", "#444", None),
+    "WS6": ("Washington Statesmen", "#444", None),
+    "WS7": ("Washington Senators (1891)", "#444", None),
+    "WS8": ("Washington Senators (AA)", "#444", None),
+    "WOR": ("Worcester Ruby Legs", "#444", None),
+}
+
+# ─── NHL ────────────────────────────────────────────────────────────────────
+# hockey-reference normalizes to "BOSTONBRUINS" via norm() — uppercase + no spaces.
+NHL = {
+    "ANAHEIMDUCKS": ("Anaheim Ducks", "#F47A38", "ana"),
+    "ARIZONACOYOTES": ("Arizona Coyotes", "#8C2633", "ari"),
+    "BOSTONBRUINS": ("Boston Bruins", "#FFB81C", "bos"),
+    "BUFFALOSABRES": ("Buffalo Sabres", "#002654", "buf"),
+    "CALGARYFLAMES": ("Calgary Flames", "#C8102E", "cgy"),
+    "CAROLINAHURRICANES": ("Carolina Hurricanes", "#CC0000", "car"),
+    "CHICAGOBLACKHAWKS": ("Chicago Blackhawks", "#CF0A2C", "chi"),
+    "COLORADOAVALANCHE": ("Colorado Avalanche", "#6F263D", "col"),
+    "COLUMBUSBLUEJACKETS": ("Columbus Blue Jackets", "#002654", "cbj"),
+    "DALLASSTARS": ("Dallas Stars", "#006847", "dal"),
+    "DETROITREDWINGS": ("Detroit Red Wings", "#CE1126", "det"),
+    "EDMONTONOILERS": ("Edmonton Oilers", "#041E42", "edm"),
+    "FLORIDAPANTHERS": ("Florida Panthers", "#041E42", "fla"),
+    "LOSANGELESKINGS": ("Los Angeles Kings", "#111111", "la"),
+    "MINNESOTAWILD": ("Minnesota Wild", "#154734", "min"),
+    "MONTREALCANADIENS": ("Montreal Canadiens", "#AF1E2D", "mtl"),
+    "NASHVILLEPREDATORS": ("Nashville Predators", "#FFB81C", "nsh"),
+    "NEWJERSEYDEVILS": ("New Jersey Devils", "#CE1126", "nj"),
+    "NEWYORKISLANDERS": ("New York Islanders", "#00539B", "nyi"),
+    "NEWYORKRANGERS": ("New York Rangers", "#0038A8", "nyr"),
+    "OTTAWASENATORS": ("Ottawa Senators", "#C52032", "ott"),
+    "PHILADELPHIAFLYERS": ("Philadelphia Flyers", "#F74902", "phi"),
+    "PITTSBURGHPENGUINS": ("Pittsburgh Penguins", "#FCB514", "pit"),
+    "SANJOSESHARKS": ("San Jose Sharks", "#006D75", "sj"),
+    "SEATTLEKRAKEN": ("Seattle Kraken", "#001628", "sea"),
+    "STLOUISBLUES": ("St. Louis Blues", "#002F87", "stl"),
+    "TAMPABAYLIGHTNING": ("Tampa Bay Lightning", "#002868", "tb"),
+    "TORONTOMAPLELEAFS": ("Toronto Maple Leafs", "#00205B", "tor"),
+    "UTAHHOCKEYCLUB": ("Utah Hockey Club", "#71AFE5", "utah"),
+    "UTAHMAMMOTH": ("Utah Mammoth", "#71AFE5", "utah"),
+    "VANCOUVERCANUCKS": ("Vancouver Canucks", "#00205B", "van"),
+    "VEGASGOLDENKNIGHTS": ("Vegas Golden Knights", "#B4975A", "vgk"),
+    "WASHINGTONCAPITALS": ("Washington Capitals", "#041E42", "wsh"),
+    "WINNIPEGJETS": ("Winnipeg Jets", "#041E42", "wpg"),
+    # Famous defunct / former names
+    "MONTREALWANDERERS": ("Montreal Wanderers", "#444", None),
+    "OTTAWASENATORS(ORIGINAL)": ("Ottawa Senators (original)", "#444", None),
+    "TORONTOARENAS": ("Toronto Arenas", "#444", None),
+    "TORONTOST.PATRICKS": ("Toronto St. Patricks", "#444", None),
+    "QUEBECBULLDOGS": ("Quebec Bulldogs", "#444", None),
+    "QUEBECATHLETICCLUB/BULLDOGS": ("Quebec Athletic Club / Bulldogs", "#444", None),
+    "HAMILTONTIGERS": ("Hamilton Tigers", "#444", None),
+    "PITTSBURGHPIRATES": ("Pittsburgh Pirates (NHL)", "#444", None),
+    "PHILADELPHIAQUAKERS": ("Philadelphia Quakers", "#444", None),
+    "NEWYORKAMERICANS": ("New York Americans", "#444", None),
+    "MONTREALMAROONS": ("Montreal Maroons", "#444", None),
+    "STLOUISEAGLES": ("St. Louis Eagles", "#444", None),
+    "OTTAWASENATORS(1917-1934)": ("Ottawa Senators (1917-1934)", "#444", None),
+    "CLEVELANDBARONS": ("Cleveland Barons", "#444", None),
+    "CALIFORNIAGOLDENSEALS": ("California Golden Seals", "#444", None),
+    "OAKLANDSEALS": ("Oakland Seals", "#444", None),
+    "KANSASCITYSCOUTS": ("Kansas City Scouts", "#444", None),
+    "COLORADOROCKIES": ("Colorado Rockies (NHL)", "#444", None),
+    "ATLANTAFLAMES": ("Atlanta Flames", "#444", None),
+    "ATLANTATHRASHERS": ("Atlanta Thrashers", "#444", None),
+    "MINNESOTANORTHSTARS": ("Minnesota North Stars", "#444", None),
+    "QUEBECNORDIQUES": ("Quebec Nordiques", "#444", None),
+    "WINNIPEGJETS(ORIGINAL)": ("Winnipeg Jets (original)", "#444", None),
+    "HARTFORDWHALERS": ("Hartford Whalers", "#444", None),
+    "PHOENIXCOYOTES": ("Phoenix Coyotes", "#444", None),
+    "MIGHTYDUCKSOFANAHEIM": ("Mighty Ducks of Anaheim", "#444", None),
+}
+
+# ─── EPL ────────────────────────────────────────────────────────────────────
+# BDL EPL uses team short_name / abbreviation — usually 3-letter codes.
+EPL = {
+    "ARS": ("Arsenal", "#EF0107", "eng.1-ars"),
+    "AVL": ("Aston Villa", "#670E36", "eng.1-avl"),
+    "BOU": ("Bournemouth", "#DA291C", "eng.1-bou"),
+    "BRE": ("Brentford", "#E30613", "eng.1-bre"),
+    "BHA": ("Brighton & Hove Albion", "#0057B8", "eng.1-bha"),
+    "BUR": ("Burnley", "#6C1D45", "eng.1-bur"),
+    "CHE": ("Chelsea", "#034694", "eng.1-che"),
+    "CRY": ("Crystal Palace", "#1B458F", "eng.1-cry"),
+    "EVE": ("Everton", "#003399", "eng.1-eve"),
+    "FUL": ("Fulham", "#000000", "eng.1-ful"),
+    "IPS": ("Ipswich Town", "#3066BE", "eng.1-ips"),
+    "LEE": ("Leeds United", "#1D428A", "eng.1-lee"),
+    "LEI": ("Leicester City", "#003090", "eng.1-lei"),
+    "LIV": ("Liverpool", "#C8102E", "eng.1-liv"),
+    "LUT": ("Luton Town", "#F78F1E", "eng.1-lut"),
+    "MCI": ("Manchester City", "#6CABDD", "eng.1-mci"),
+    "MNC": ("Manchester City", "#6CABDD", "eng.1-mci"),
+    "MUN": ("Manchester United", "#DA291C", "eng.1-mun"),
+    "MAN": ("Manchester United", "#DA291C", "eng.1-mun"),
+    "NEW": ("Newcastle United", "#241F20", "eng.1-new"),
+    "NOR": ("Norwich City", "#FFF200", "eng.1-nor"),
+    "NFO": ("Nottingham Forest", "#DD0000", "eng.1-nfo"),
+    "SHU": ("Sheffield United", "#EE2737", "eng.1-shu"),
+    "SOU": ("Southampton", "#D71920", "eng.1-sou"),
+    "TOT": ("Tottenham Hotspur", "#132257", "eng.1-tot"),
+    "WAT": ("Watford", "#FBEE23", "eng.1-wat"),
+    "WHU": ("West Ham United", "#7A263A", "eng.1-whu"),
+    "WBA": ("West Bromwich Albion", "#122F67", "eng.1-wba"),
+    "WOL": ("Wolverhampton Wanderers", "#FDB913", "eng.1-wol"),
+    # Common BDL norm() outputs (no abbreviation)
+    "ARSENAL": ("Arsenal", "#EF0107", "eng.1-ars"),
+    "ASTONVILLA": ("Aston Villa", "#670E36", "eng.1-avl"),
+    "BOURNEMOUTH": ("Bournemouth", "#DA291C", "eng.1-bou"),
+    "BRENTFORD": ("Brentford", "#E30613", "eng.1-bre"),
+    "BRIGHTONANDHOVEALBION": ("Brighton & Hove Albion", "#0057B8", "eng.1-bha"),
+    "BURNLEY": ("Burnley", "#6C1D45", "eng.1-bur"),
+    "CHELSEA": ("Chelsea", "#034694", "eng.1-che"),
+    "CRYSTALPALACE": ("Crystal Palace", "#1B458F", "eng.1-cry"),
+    "EVERTON": ("Everton", "#003399", "eng.1-eve"),
+    "FULHAM": ("Fulham", "#000000", "eng.1-ful"),
+    "IPSWICHTOWN": ("Ipswich Town", "#3066BE", "eng.1-ips"),
+    "LEEDSUNITED": ("Leeds United", "#1D428A", "eng.1-lee"),
+    "LEICESTERCITY": ("Leicester City", "#003090", "eng.1-lei"),
+    "LIVERPOOL": ("Liverpool", "#C8102E", "eng.1-liv"),
+    "LUTONTOWN": ("Luton Town", "#F78F1E", "eng.1-lut"),
+    "MANCHESTERCITY": ("Manchester City", "#6CABDD", "eng.1-mci"),
+    "MANCITY": ("Manchester City", "#6CABDD", "eng.1-mci"),
+    "MANCHESTERUNITED": ("Manchester United", "#DA291C", "eng.1-mun"),
+    "MANUNITED": ("Manchester United", "#DA291C", "eng.1-mun"),
+    "NEWCASTLEUNITED": ("Newcastle United", "#241F20", "eng.1-new"),
+    "NORWICHCITY": ("Norwich City", "#FFF200", "eng.1-nor"),
+    "NOTTINGHAMFOREST": ("Nottingham Forest", "#DD0000", "eng.1-nfo"),
+    "SHEFFIELDUNITED": ("Sheffield United", "#EE2737", "eng.1-shu"),
+    "SOUTHAMPTON": ("Southampton", "#D71920", "eng.1-sou"),
+    "TOTTENHAMHOTSPUR": ("Tottenham Hotspur", "#132257", "eng.1-tot"),
+    "TOTTENHAM": ("Tottenham Hotspur", "#132257", "eng.1-tot"),
+    "WATFORD": ("Watford", "#FBEE23", "eng.1-wat"),
+    "WESTHAMUNITED": ("West Ham United", "#7A263A", "eng.1-whu"),
+    "WESTHAM": ("West Ham United", "#7A263A", "eng.1-whu"),
+    "WESTBROMWICHALBION": ("West Bromwich Albion", "#122F67", "eng.1-wba"),
+    "WOLVERHAMPTONWANDERERS": ("Wolverhampton Wanderers", "#FDB913", "eng.1-wol"),
+    "WOLVES": ("Wolverhampton Wanderers", "#FDB913", "eng.1-wol"),
+    # Historical
+    "WIMBLEDON": ("Wimbledon", "#444", None),
+    "BLACKBURNROVERS": ("Blackburn Rovers", "#444", None),
+    "QUEENSPARKRANGERS": ("Queens Park Rangers", "#444", None),
+    "SUNDERLAND": ("Sunderland", "#444", None),
+    "MIDDLESBROUGH": ("Middlesbrough", "#444", None),
+    "PORTSMOUTH": ("Portsmouth", "#444", None),
+    "DERBYCOUNTY": ("Derby County", "#444", None),
+    "OLDHAMATHLETIC": ("Oldham Athletic", "#444", None),
+    "COVENTRYCITY": ("Coventry City", "#444", None),
+    "SHEFFIELDWEDNESDAY": ("Sheffield Wednesday", "#444", None),
+    "STOKECITY": ("Stoke City", "#444", None),
+    "HULLCITY": ("Hull City", "#444", None),
+    "CARDIFFCITY": ("Cardiff City", "#444", None),
+    "SWANSEACITY": ("Swansea City", "#444", None),
+    "WIGANATHLETIC": ("Wigan Athletic", "#444", None),
+    "BIRMINGHAMCITY": ("Birmingham City", "#444", None),
+    "BOLTONWANDERERS": ("Bolton Wanderers", "#444", None),
+    "READING": ("Reading", "#444", None),
+    "CHARLTONATHLETIC": ("Charlton Athletic", "#444", None),
+    "BARNSLEY": ("Barnsley", "#444", None),
+    "BLACKPOOL": ("Blackpool", "#444", None),
+    "BRADFORDCITY": ("Bradford City", "#444", None),
+    "HUDDERSFIELDTOWN": ("Huddersfield Town", "#444", None),
+}
+
+# ─── CFB ────────────────────────────────────────────────────────────────────
+# CFBD uses full team names; norm() → "NOTREDAME". Logo IDs are ESPN team IDs.
+# Source: https://a.espncdn.com/i/teamlogos/ncaa/500/{id}.png — these are the
+# numeric IDs ESPN uses internally.
+CFB = {
+    "ALABAMA":            ("Alabama Crimson Tide", "#9E1B32", "333"),
+    "AUBURN":             ("Auburn Tigers", "#0C2340", "2"),
+    "GEORGIA":            ("Georgia Bulldogs", "#BA0C2F", "61"),
+    "FLORIDA":            ("Florida Gators", "#0021A5", "57"),
+    "TENNESSEE":          ("Tennessee Volunteers", "#FF8200", "2633"),
+    "KENTUCKY":           ("Kentucky Wildcats", "#0033A0", "96"),
+    "VANDERBILT":         ("Vanderbilt Commodores", "#000000", "238"),
+    "MISSISSIPPI":        ("Ole Miss Rebels", "#CE1126", "145"),
+    "MISSISSIPPISTATE":   ("Mississippi State Bulldogs", "#660000", "344"),
+    "LSU":                ("LSU Tigers", "#461D7C", "99"),
+    "ARKANSAS":           ("Arkansas Razorbacks", "#9D2235", "8"),
+    "TEXASAANDM":         ("Texas A&M Aggies", "#500000", "245"),
+    "TEXASA&M":           ("Texas A&M Aggies", "#500000", "245"),
+    "SOUTHCAROLINA":      ("South Carolina Gamecocks", "#73000A", "2579"),
+    "MISSOURI":           ("Missouri Tigers", "#000000", "142"),
+    "OKLAHOMA":           ("Oklahoma Sooners", "#841617", "201"),
+    "TEXAS":              ("Texas Longhorns", "#BF5700", "251"),
+    "OHIOSTATE":          ("Ohio State Buckeyes", "#BB0000", "194"),
+    "MICHIGAN":           ("Michigan Wolverines", "#00274C", "130"),
+    "MICHIGANSTATE":      ("Michigan State Spartans", "#18453B", "127"),
+    "PENNSTATE":          ("Penn State Nittany Lions", "#041E42", "213"),
+    "WISCONSIN":          ("Wisconsin Badgers", "#C5050C", "275"),
+    "IOWA":               ("Iowa Hawkeyes", "#000000", "2294"),
+    "MINNESOTA":          ("Minnesota Golden Gophers", "#7A0019", "135"),
+    "NEBRASKA":           ("Nebraska Cornhuskers", "#E41C38", "158"),
+    "ILLINOIS":           ("Illinois Fighting Illini", "#13294B", "356"),
+    "INDIANA":            ("Indiana Hoosiers", "#990000", "84"),
+    "NORTHWESTERN":       ("Northwestern Wildcats", "#4E2A84", "77"),
+    "PURDUE":             ("Purdue Boilermakers", "#CEB888", "2509"),
+    "MARYLAND":           ("Maryland Terrapins", "#E03A3E", "120"),
+    "RUTGERS":            ("Rutgers Scarlet Knights", "#CC0033", "164"),
+    "OREGON":             ("Oregon Ducks", "#154733", "2483"),
+    "WASHINGTON":         ("Washington Huskies", "#4B2E83", "264"),
+    "USC":                ("USC Trojans", "#990000", "30"),
+    "UCLA":               ("UCLA Bruins", "#2D68C4", "26"),
+    "CLEMSON":            ("Clemson Tigers", "#F66733", "228"),
+    "FLORIDASTATE":       ("Florida State Seminoles", "#782F40", "52"),
+    "MIAMI":              ("Miami Hurricanes", "#F47321", "2390"),
+    "VIRGINIATECH":       ("Virginia Tech Hokies", "#630031", "259"),
+    "VIRGINIA":           ("Virginia Cavaliers", "#232D4B", "258"),
+    "NORTHCAROLINA":      ("North Carolina Tar Heels", "#13294B", "153"),
+    "DUKE":               ("Duke Blue Devils", "#003087", "150"),
+    "NCSTATE":            ("NC State Wolfpack", "#CC0000", "152"),
+    "WAKEFOREST":         ("Wake Forest Demon Deacons", "#9E7E38", "154"),
+    "BOSTONCOLLEGE":      ("Boston College Eagles", "#8B0000", "103"),
+    "SYRACUSE":           ("Syracuse Orange", "#F76900", "183"),
+    "PITTSBURGH":         ("Pittsburgh Panthers", "#003594", "221"),
+    "LOUISVILLE":         ("Louisville Cardinals", "#AD0000", "97"),
+    "GEORGIATECH":        ("Georgia Tech Yellow Jackets", "#B3A369", "59"),
+    "NOTREDAME":          ("Notre Dame Fighting Irish", "#0C2340", "87"),
+    "STANFORD":           ("Stanford Cardinal", "#8C1515", "24"),
+    "CALIFORNIA":         ("California Golden Bears", "#003262", "25"),
+    "ARIZONA":            ("Arizona Wildcats", "#CC0033", "12"),
+    "ARIZONASTATE":       ("Arizona State Sun Devils", "#8C1D40", "9"),
+    "UTAH":               ("Utah Utes", "#CC0000", "254"),
+    "COLORADO":           ("Colorado Buffaloes", "#CFB87C", "38"),
+    "WASHINGTONSTATE":    ("Washington State Cougars", "#981E32", "265"),
+    "OREGONSTATE":        ("Oregon State Beavers", "#DC4405", "204"),
+    "OKLAHOMASTATE":      ("Oklahoma State Cowboys", "#FF7300", "197"),
+    "KANSAS":             ("Kansas Jayhawks", "#0051BA", "2305"),
+    "KANSASSTATE":        ("Kansas State Wildcats", "#512888", "2306"),
+    "IOWASTATE":          ("Iowa State Cyclones", "#C8102E", "66"),
+    "TEXASTECH":          ("Texas Tech Red Raiders", "#CC0000", "2641"),
+    "TCU":                ("TCU Horned Frogs", "#4D1979", "2628"),
+    "BAYLOR":             ("Baylor Bears", "#003015", "239"),
+    "WESTVIRGINIA":       ("West Virginia Mountaineers", "#002855", "277"),
+    "BYU":                ("BYU Cougars", "#002E5D", "252"),
+    "HOUSTON":            ("Houston Cougars", "#C8102E", "248"),
+    "CINCINNATI":         ("Cincinnati Bearcats", "#000000", "2132"),
+    "UCF":                ("UCF Knights", "#000000", "2116"),
+    # Independents / others
+    "ARMY":               ("Army Black Knights", "#000000", "349"),
+    "NAVY":               ("Navy Midshipmen", "#00205B", "2426"),
+    "AIRFORCE":           ("Air Force Falcons", "#003087", "2005"),
+    "PRINCETON":          ("Princeton Tigers", "#FF8F00", "163"),
+    "HARVARD":            ("Harvard Crimson", "#A51C30", "108"),
+    "YALE":               ("Yale Bulldogs", "#00356B", "43"),
+    "PENN":               ("Penn Quakers", "#990000", "219"),
+    "CORNELL":            ("Cornell Big Red", "#B31B1B", "172"),
+    "COLUMBIA":           ("Columbia Lions", "#75AADB", "171"),
+    "DARTMOUTH":          ("Dartmouth Big Green", "#00693E", "159"),
+    "BROWN":              ("Brown Bears", "#4E3629", "225"),
+}
+
+TABLES = {
+    "NBA": (NBA, "nba"),
+    "NFL": (NFL, "nfl"),
+    "MLB": (MLB, "mlb"),
+    "NHL": (NHL, "nhl"),
+    "EPL": (EPL, None),  # ESPN soccer uses different slug shape, handled below
+    "CFB": (CFB, "ncaa"),
+}
+
+
+def prettify(code: str) -> str:
+    # NOTREDAME → "Notre Dame"; LEEDSUNITED → "Leeds United"
+    if not any(c.islower() for c in code) and any(c.isalpha() for c in code):
+        # Title-case but try to split camel boundaries for human readability.
+        # We don't have camel info, so just title-case as one word group.
+        return code.title().replace("And", "&")
+    return code
+
+
+def logo_for(sport: str, league: str, slug) -> Optional[str]:
+    if not slug:
+        return None
+    if league == "EPL":
+        # ESPN soccer: https://a.espncdn.com/i/teamlogos/soccer/500/<slug>.png
+        return f"https://a.espncdn.com/i/teamlogos/soccer/500/{slug}.png"
+    return ESPN.format(sport=sport, slug=slug)
+
+
+def collect_codes(league: str) -> set[str]:
+    f = OUTPUT_DIR / f"lineage-{league}.json"
+    if not f.exists():
+        return set()
+    data = json.loads(f.read_text(encoding="utf-8"))
+    codes: set[str] = set()
+    for c in data.get("changes", []):
+        for k in ("from", "to"):
+            v = c.get(k)
+            if v:
+                codes.add(v)
+    return codes
+
+
+def build_brand(league: str, code: str) -> dict:
+    table, sport = TABLES[league]
+    entry = table.get(code)
+    if entry:
+        name, color, slug = entry
+        return {
+            "league": league,
+            "code": code,
+            "name": name,
+            "color": color,
+            "logo": logo_for(sport, league, slug) or "",
+        }
+    return {
+        "league": league,
+        "code": code,
+        "name": prettify(code),
+        "color": "#555",
+        "logo": "",
+    }
+
+
+def post(brand: dict, admin_secret: str) -> str:
+    r = requests.post(
+        f"{WORKER_URL}/admin/brand/set",
+        json=brand,
+        headers={"x-admin-secret": admin_secret, "content-type": "application/json"},
+        timeout=20,
+    )
+    return f"{r.status_code} {r.text[:120]}"
+
+
+def main() -> int:
+    p = argparse.ArgumentParser()
+    p.add_argument("--dry-run", action="store_true", help="Print brands, don't POST")
+    p.add_argument("--leagues", default="NBA,NFL,MLB,NHL,EPL,CFB")
+    args = p.parse_args()
+
+    leagues = [L.strip().upper() for L in args.leagues.split(",") if L.strip()]
+    secret = os.environ.get("ADMIN_SECRET")
+    if not args.dry_run and not secret:
+        print("ADMIN_SECRET env var required (or use --dry-run)", file=sys.stderr)
+        return 2
+
+    total = 0
+    unmapped: list[tuple[str, str]] = []
+    for L in leagues:
+        codes = sorted(collect_codes(L))
+        if not codes:
+            print(f"  {L}: no output file or empty")
+            continue
+        table = TABLES[L][0]
+        print(f"\n=== {L} ({len(codes)} codes) ===")
+        for code in codes:
+            brand = build_brand(L, code)
+            if code not in table:
+                unmapped.append((L, code))
+            total += 1
+            if args.dry_run:
+                print(f"  {code:30s}  {brand['name']:40s}  logo={'yes' if brand['logo'] else 'no'}")
+            else:
+                result = post(brand, secret)
+                ok = result.startswith("200")
+                mark = "✓" if ok else "✗"
+                print(f"  {mark} {code:30s}  {brand['name']:40s}  [{result}]")
+                time.sleep(0.05)  # be gentle
+
+    print(f"\nProcessed {total} brand entries across {len(leagues)} league(s).")
+    if unmapped:
+        print(f"  {len(unmapped)} codes used the prettify-fallback (no logo). Add to TABLES if you want logos:")
+        for L, c in unmapped[:40]:
+            print(f"    {L:4} {c}")
+        if len(unmapped) > 40:
+            print(f"    ... and {len(unmapped)-40} more")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
