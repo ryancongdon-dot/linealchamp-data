@@ -880,9 +880,39 @@ const PUBLIC_HTML = `<!doctype html>
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 12px; margin-top: 24px; position: relative; }
   .stat { background: var(--bg-elev); border: 1px solid var(--border); padding: 14px 16px; border-radius: 12px; }
+  .stat.clickable { cursor: pointer; transition: border-color 0.15s, transform 0.05s; }
+  .stat.clickable:hover { border-color: var(--accent); }
+  .stat.clickable:active { transform: scale(0.98); }
   .stat .v { font-size: 22px; font-weight: 700; }
   .stat .k { color: var(--text-dim); font-size: 11px; text-transform: uppercase;
     letter-spacing: 0.08em; margin-top: 4px; }
+  .stat .hint { color: var(--text-dim); font-size: 10px; margin-top: 6px; opacity: 0.5; }
+  .modal-back { position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 50;
+    display: none; align-items: flex-start; justify-content: center; padding: 60px 16px;
+    overflow-y: auto; }
+  .modal-back.on { display: flex; }
+  .modal { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px;
+    max-width: 720px; width: 100%; padding: 24px; }
+  .modal h3 { margin: 0 0 4px; font-size: 20px; }
+  .modal .modal-sub { color: var(--text-dim); font-size: 13px; margin-bottom: 16px; }
+  .modal .close { float: right; background: none; border: none; color: var(--text-dim);
+    font-size: 22px; cursor: pointer; line-height: 1; }
+  .modal .close:hover { color: var(--text); }
+  .modal-row { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border);
+    font-size: 14px; }
+  .modal-row:last-child { border-bottom: none; }
+  .modal-row .when { color: var(--text-dim); min-width: 110px; font-size: 12px; }
+  .modal-row .what { flex: 1; }
+  .modal-row .score { color: var(--text-dim); font-size: 13px; }
+  .modal-row.win .score { color: var(--win); }
+  .modal-row.loss .score { color: var(--loss); }
+  .rank-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .rank-table td, .rank-table th { padding: 8px 6px; border-bottom: 1px solid var(--border);
+    text-align: left; }
+  .rank-table th { color: var(--text-dim); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.08em; font-weight: 500; }
+  .rank-table tr.me { background: rgba(45, 212, 191, 0.08); }
+  .rank-table td.num { text-align: right; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .strip { margin-top: 8px; }
   .strip h3 { margin: 16px 0 8px; font-size: 13px; color: var(--text-dim);
     text-transform: uppercase; letter-spacing: 0.1em; }
@@ -964,6 +994,15 @@ const PUBLIC_HTML = `<!doctype html>
   <div class="ask" id="askPanel">
     <input id="askInput" placeholder="Ask anything about this league…"/>
     <div class="answer" id="askAnswer"></div>
+  </div>
+
+  <div class="modal-back" id="modalBack">
+    <div class="modal" id="modal">
+      <button class="close" id="modalClose" aria-label="Close">×</button>
+      <h3 id="modalTitle">—</h3>
+      <div class="modal-sub" id="modalSub"></div>
+      <div id="modalBody"></div>
+    </div>
   </div>
 
   <footer><a href="/admin">admin</a></footer>
@@ -1072,15 +1111,28 @@ const PUBLIC_HTML = `<!doctype html>
       ? 'Won the belt on '+fmtDate(prev.date)+' vs '+escapeHTML(brandFor(prev.from).name)
       : (DATA.asOfDate ? 'Holds the lineal title (data as of '+fmtDate(DATA.asOfDate)+')' : '');
 
+    var reigns = computeAllReigns(changes);
+    var totalChanges = (DATA.changes||[]).filter(function(c){ return c.from; }).length;
+    var reignNum = countReignsFor(changes, DATA.currentChamp);
+    var rankInfo = longevityRank(reigns, DATA.currentChamp);
     var stats = [
-      { k: 'Days held', v: days.toLocaleString() },
-      { k: 'Total belt changes', v: (DATA.changes||[]).filter(function(c){ return c.from; }).length.toLocaleString() },
-      { k: 'Reign #', v: countReignsFor(changes, DATA.currentChamp) },
-      { k: 'As of', v: DATA.asOfDate ? fmtDate(DATA.asOfDate) : '—' },
+      { k: 'Days held', v: days.toLocaleString(), action: 'reign', hint: 'click for games' },
+      { k: 'Total belt changes', v: totalChanges.toLocaleString(), action: 'history', hint: 'click for history' },
+      { k: 'Reign #', v: reignNum, action: 'reign', hint: 'click for games' },
+      { k: 'Longevity rank', v: rankInfo.label, action: 'rank', hint: 'click for top 20' },
+      { k: 'As of', v: DATA.asOfDate ? fmtDate(DATA.asOfDate) : '—', action: 'asof', hint: 'click for sources' },
     ];
     el('statsGrid').innerHTML = stats.map(function(s){
-      return '<div class="stat"><div class="v">'+escapeHTML(s.v)+'</div><div class="k">'+escapeHTML(s.k)+'</div></div>';
+      return '<div class="stat clickable" data-action="'+s.action+'">'
+        + '<div class="v">'+escapeHTML(s.v)+'</div>'
+        + '<div class="k">'+escapeHTML(s.k)+'</div>'
+        + '<div class="hint">'+escapeHTML(s.hint)+'</div>'
+        + '</div>';
     }).join('');
+    var grid = el('statsGrid');
+    grid.querySelectorAll('.stat.clickable').forEach(function(node){
+      node.addEventListener('click', function(){ openStat(node.getAttribute('data-action')); });
+    });
     el('meta').textContent = DATA.deltaCount ? (DATA.deltaCount + ' live update(s) since static snapshot') : '';
   }
 
@@ -1088,6 +1140,139 @@ const PUBLIC_HTML = `<!doctype html>
     var n = 0;
     for (var i = 0; i < changes.length; i++) if (changes[i].to === team) n++;
     return String(n);
+  }
+
+  // All historical reigns as { team, startDate, endDate, days }.
+  // The active reign uses today as endDate.
+  function computeAllReigns(changes){
+    var sorted = changes.slice().sort(function(a,b){ return new Date(a.date) - new Date(b.date); });
+    var out = [];
+    var todayIso = new Date().toISOString();
+    for (var i = 0; i < sorted.length; i++) {
+      var c = sorted[i];
+      var endIso = (i+1 < sorted.length) ? sorted[i+1].date : todayIso;
+      out.push({ team: c.to, startDate: c.date, endDate: endIso, days: daysBetween(c.date, endIso) });
+    }
+    return out;
+  }
+
+  function longevityRank(reigns, team){
+    var sorted = reigns.slice().sort(function(a,b){ return b.days - a.days; });
+    var idx = -1;
+    var bestDays = 0;
+    for (var i = 0; i < sorted.length; i++) {
+      if (sorted[i].team === team && sorted[i].days >= bestDays) {
+        // Find this team's longest reign and use its rank.
+        bestDays = sorted[i].days;
+        if (idx === -1) idx = i;
+      }
+    }
+    if (idx === -1) return { label: '—', rank: null, total: sorted.length };
+    return { label: ordinal(idx+1), rank: idx+1, total: sorted.length, days: bestDays };
+  }
+
+  function ordinal(n){
+    var s = ['th','st','nd','rd'];
+    var v = n % 100;
+    return n + (s[(v-20)%10] || s[v] || s[0]);
+  }
+
+  function openStat(action){
+    if (action === 'reign') return openReignModal();
+    if (action === 'history') return openHistoryModal();
+    if (action === 'rank') return openRankModal();
+    if (action === 'asof') return openAsOfModal();
+  }
+
+  function showModal(title, sub, bodyHtml){
+    el('modalTitle').textContent = title;
+    el('modalSub').textContent = sub || '';
+    el('modalBody').innerHTML = bodyHtml || '';
+    el('modalBack').classList.add('on');
+  }
+
+  function closeModal(){ el('modalBack').classList.remove('on'); }
+
+  async function openReignModal(){
+    await loadEventsIfNeeded();
+    var changes = (DATA.changes||[]).slice().sort(function(a,b){ return new Date(a.date) - new Date(b.date); });
+    var last = changes[changes.length-1];
+    var start = last ? last.date : null;
+    var b = brandFor(DATA.currentChamp);
+    var games = (EVENTS||[]).filter(function(ev){
+      return ev.champ === DATA.currentChamp && (!start || new Date(ev.date) >= new Date(start));
+    }).sort(function(a,b){ return new Date(b.date) - new Date(a.date); });
+    var sub = b.name + ' — current reign began ' + (start ? fmtDate(start) : '—');
+    var body = games.length
+      ? games.map(function(ev){
+          var opp = brandFor(ev.opponent);
+          var cls = ev.result === 'W' ? 'win' : 'loss';
+          var verb = ev.result === 'W' ? 'beat' : 'lost to';
+          return '<div class="modal-row '+cls+'">'
+            + '<span class="when">'+fmtDate(ev.date)+'</span>'
+            + '<span class="what">'+verb+' '+escapeHTML(opp.name)+'</span>'
+            + '<span class="score">'+escapeHTML(ev.champScore+'-'+ev.oppScore)+'</span>'
+            + '</div>';
+        }).join('')
+      : '<div style="color:var(--text-dim);padding:10px 0">No games recorded during this reign yet.</div>';
+    showModal('Current reign — ' + games.length + ' game' + (games.length===1?'':'s'), sub, body);
+  }
+
+  function openHistoryModal(){
+    var changes = (DATA.changes||[]).filter(function(c){ return c.from; })
+      .slice().sort(function(a,b){ return new Date(b.date) - new Date(a.date); });
+    var body = changes.map(function(c){
+      var from = brandFor(c.from), to = brandFor(c.to);
+      return '<div class="modal-row loss">'
+        + '<span class="when">'+fmtDate(c.date)+'</span>'
+        + '<span class="what"><b style="color:'+to.color+'">'+escapeHTML(to.name)+'</b> took belt from '+escapeHTML(from.name)+'</span>'
+        + (c.score ? '<span class="score">'+escapeHTML(c.score)+'</span>' : '')
+        + '</div>';
+    }).join('');
+    showModal('Belt change history', changes.length + ' total transfers, newest first', body || '<div style="padding:10px 0;color:var(--text-dim)">No changes recorded.</div>');
+  }
+
+  function openRankModal(){
+    var changes = (DATA.changes||[]).slice();
+    var reigns = computeAllReigns(changes).sort(function(a,b){ return b.days - a.days; });
+    var top = reigns.slice(0, 20);
+    var meTeam = DATA.currentChamp;
+    var myEntry = longevityRank(computeAllReigns(changes), meTeam);
+    var rows = top.map(function(r, i){
+      var b = brandFor(r.team);
+      var isMe = r.team === meTeam && (i+1) === myEntry.rank;
+      return '<tr class="'+(isMe?'me':'')+'">'
+        + '<td class="num">'+(i+1)+'</td>'
+        + '<td><b style="color:'+b.color+'">'+escapeHTML(b.name)+'</b></td>'
+        + '<td>'+fmtDate(r.startDate)+' → '+fmtDate(r.endDate)+'</td>'
+        + '<td class="num">'+r.days.toLocaleString()+' d</td>'
+        + '</tr>';
+    }).join('');
+    var body = '<table class="rank-table">'
+      + '<thead><tr><th class="num">#</th><th>Team</th><th>Reign</th><th class="num">Length</th></tr></thead>'
+      + '<tbody>'+rows+'</tbody></table>';
+    var sub = brandFor(meTeam).name + '\'s current reign ranks ' + myEntry.label + ' out of ' + myEntry.total + ' all-time reigns';
+    showModal('Longest reigns — top 20', sub, body);
+  }
+
+  function openAsOfModal(){
+    var sources = {
+      NBA: 'balldontlie.io /v1/games (1947+)',
+      NFL: 'balldontlie.io /nfl/v1/games (2002+)',
+      MLB: 'Retrosheet game logs (1871+)',
+      NHL: 'hockey-reference.com (1917+)',
+      EPL: 'balldontlie.io /epl/v1/games (1992+)',
+      CFB: 'collegefootballdata.com (1869+, FBS)'
+    };
+    var src = sources[league] || '—';
+    var body = '<div style="line-height:1.7;font-size:14px">'
+      + '<div><b>Snapshot date:</b> '+(DATA.asOfDate ? fmtDate(DATA.asOfDate) : '—')+'</div>'
+      + '<div><b>Source:</b> '+escapeHTML(src)+'</div>'
+      + '<div><b>Live updates since snapshot:</b> '+(DATA.deltaCount || 0)+'</div>'
+      + '<div style="margin-top:14px;color:var(--text-dim);font-size:13px">'
+      + 'Static lineage was computed offline and uploaded to KV. Daily cron fetches the current champion\'s upcoming games and appends any belt changes since the snapshot.'
+      + '</div></div>';
+    showModal('Data freshness', league + ' — data sources & update info', body);
   }
 
   function renderStrip(){
@@ -1155,6 +1340,13 @@ const PUBLIC_HTML = `<!doctype html>
   el('toggleAsk').addEventListener('click', function(){
     el('askPanel').classList.toggle('on');
     if (el('askPanel').classList.contains('on')) el('askInput').focus();
+  });
+  el('modalClose').addEventListener('click', closeModal);
+  el('modalBack').addEventListener('click', function(e){
+    if (e.target === el('modalBack')) closeModal();
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && el('modalBack').classList.contains('on')) closeModal();
   });
   el('askInput').addEventListener('keydown', async function(e){
     if (e.key !== 'Enter') return;
