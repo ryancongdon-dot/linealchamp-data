@@ -1271,10 +1271,12 @@ const PUBLIC_HTML = `<!doctype html>
     var totalChanges = (DATA.changes||[]).filter(function(c){ return c.from; }).length;
     var reignNum = countReignsFor(changes, DATA.currentChamp);
     var rankInfo = longevityRank(reigns, DATA.currentChamp);
+    var isBoxing = league === 'BOXHW';
+    var fightsLabel = isBoxing ? 'click for title fights' : 'click for games';
     var stats = [
-      { k: 'Days held', v: days.toLocaleString(), action: 'reign', hint: 'click for games' },
+      { k: 'Days held', v: days.toLocaleString(), action: 'reign', hint: fightsLabel },
       { k: 'Total belt changes', v: totalChanges.toLocaleString(), action: 'history', hint: 'click for history' },
-      { k: 'Reign #', v: reignNum, action: 'reign', hint: 'click for games' },
+      { k: 'Reign #', v: reignNum, action: 'reign', hint: fightsLabel },
       { k: 'Longevity rank', v: rankInfo.label, action: 'rank', hint: 'click for top 20' },
       { k: 'As of', v: DATA.asOfDate ? fmtDate(DATA.asOfDate) : '—', action: 'asof', hint: 'click for sources' },
     ];
@@ -1358,20 +1360,25 @@ const PUBLIC_HTML = `<!doctype html>
     var games = (EVENTS||[]).filter(function(ev){
       return ev.champ === DATA.currentChamp && (!start || new Date(ev.date) >= new Date(start));
     }).sort(function(a,b){ return new Date(b.date) - new Date(a.date); });
+    var isBoxing = league === 'BOXHW';
+    var unitLabel = isBoxing ? 'title fight' : 'game';
     var sub = b.name + ' — current reign began ' + (start ? fmtDate(start) : '—');
     var body = games.length
       ? games.map(function(ev){
           var opp = brandFor(ev.opponent);
           var cls = ev.result === 'W' ? 'win' : 'loss';
           var verb = ev.result === 'W' ? 'beat' : 'lost to';
+          var scoreText = isBoxing
+            ? (ev.score || '')
+            : (ev.champScore + '-' + ev.oppScore);
           return '<div class="modal-row '+cls+'">'
             + '<span class="when">'+fmtDate(ev.date)+'</span>'
             + '<span class="what">'+verb+' '+escapeHTML(opp.name)+'</span>'
-            + '<span class="score">'+escapeHTML(ev.champScore+'-'+ev.oppScore)+'</span>'
+            + '<span class="score">'+escapeHTML(scoreText)+'</span>'
             + '</div>';
         }).join('')
-      : '<div style="color:var(--text-dim);padding:10px 0">No games recorded during this reign yet.</div>';
-    showModal('Current reign — ' + games.length + ' game' + (games.length===1?'':'s'), sub, body);
+      : '<div style="color:var(--text-dim);padding:10px 0">No '+unitLabel+'s recorded during this reign yet.</div>';
+    showModal('Current reign — ' + games.length + ' ' + unitLabel + (games.length===1?'':'s'), sub, body);
   }
 
   function openHistoryModal(){
