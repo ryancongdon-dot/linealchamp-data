@@ -33,7 +33,7 @@ import requests
 
 from lineage import Game, norm
 
-SEED_TEAM = "MANUNITED"  # 1992-93 Premier League champions (BDL uses "Man United")
+SEED_TEAM = "MANUTD"  # 1992-93 Premier League champions (BDL short_name "Man Utd")
 SEED_DATE = "1993-08-14"  # 1993-94 season opener — start counting belt defenses here
 
 BDL_GAMES_URL = "https://api.balldontlie.io/epl/v1/games"
