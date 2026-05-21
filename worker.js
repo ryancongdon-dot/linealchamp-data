@@ -1251,7 +1251,7 @@ const PUBLIC_HTML = `<!doctype html>
     var body = '<table class="rank-table">'
       + '<thead><tr><th class="num">#</th><th>Team</th><th>Reign</th><th class="num">Length</th></tr></thead>'
       + '<tbody>'+rows+'</tbody></table>';
-    var sub = brandFor(meTeam).name + '\'s current reign ranks ' + myEntry.label + ' out of ' + myEntry.total + ' all-time reigns';
+    var sub = brandFor(meTeam).name + "'s current reign ranks " + myEntry.label + ' out of ' + myEntry.total + ' all-time reigns';
     showModal('Longest reigns — top 20', sub, body);
   }
 
@@ -1270,7 +1270,7 @@ const PUBLIC_HTML = `<!doctype html>
       + '<div><b>Source:</b> '+escapeHTML(src)+'</div>'
       + '<div><b>Live updates since snapshot:</b> '+(DATA.deltaCount || 0)+'</div>'
       + '<div style="margin-top:14px;color:var(--text-dim);font-size:13px">'
-      + 'Static lineage was computed offline and uploaded to KV. Daily cron fetches the current champion\'s upcoming games and appends any belt changes since the snapshot.'
+      + "Static lineage was computed offline and uploaded to KV. Daily cron fetches the current champion's upcoming games and appends any belt changes since the snapshot."
       + '</div></div>';
     showModal('Data freshness', league + ' — data sources & update info', body);
   }
