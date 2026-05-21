@@ -592,22 +592,43 @@ def prettify(code: str) -> str:
 _WIKI_CACHE: dict[str, str] = {}
 
 def wiki_portrait(title: str) -> Optional[str]:
-    """Return a stable CDN URL for the Wikipedia article's lead image, or None."""
+    """Return a stable CDN URL for the Wikipedia article's lead image, or None.
+
+    Uses the MediaWiki Action API with prop=pageimages which (unlike the REST
+    summary endpoint) returns thumbnails even when the page's lead image is
+    licensed under fair use — covering most pre-1970s boxer photos.
+    """
     if not title:
         return None
     if title in _WIKI_CACHE:
         return _WIKI_CACHE[title] or None
     try:
-        url = "https://en.wikipedia.org/api/rest_v1/page/summary/" + requests.utils.quote(title, safe="")
-        r = requests.get(url, headers={"User-Agent": "linealchamp-seed/1.0"}, timeout=15)
+        r = requests.get(
+            "https://en.wikipedia.org/w/api.php",
+            params={
+                "action": "query",
+                "format": "json",
+                "prop": "pageimages",
+                "piprop": "thumbnail|original",
+                "pithumbsize": "400",
+                "redirects": "1",
+                "titles": title,
+            },
+            headers={"User-Agent": "linealchamp-seed/1.0"},
+            timeout=15,
+        )
         if r.status_code != 200:
             _WIKI_CACHE[title] = ""
             return None
         j = r.json()
-        # Prefer thumbnail (smaller, faster) over originalimage.
-        src = (j.get("thumbnail") or {}).get("source") or (j.get("originalimage") or {}).get("source")
-        _WIKI_CACHE[title] = src or ""
-        return src
+        pages = ((j.get("query") or {}).get("pages") or {})
+        for _pid, page in pages.items():
+            src = (page.get("thumbnail") or {}).get("source") or (page.get("original") or {}).get("source")
+            if src:
+                _WIKI_CACHE[title] = src
+                return src
+        _WIKI_CACHE[title] = ""
+        return None
     except Exception:
         _WIKI_CACHE[title] = ""
         return None

@@ -171,6 +171,9 @@ export default {
           logo:  body.logo  || curr[code]?.logo  || "",
         };
         await saveBrand(env, league, curr);
+        // Purge edge cache for this league's brand response so the next reader
+        // sees the new entry instead of a stale cached payload.
+        await invalidateBrandCache(url, league);
         return cors.json({ ok: true, updated: curr[code] });
       }
       if (url.pathname === "/admin/brand/delete") {
@@ -680,6 +683,15 @@ async function fetchCFBRecent(teamCode, start, end) {
     }
   }
   return out;
+}
+
+async function invalidateBrandCache(reqUrl, league) {
+  try {
+    const u = new URL(reqUrl.toString());
+    u.pathname = "/api/brand";
+    u.search = "?league=" + league;
+    await caches.default.delete(u.toString());
+  } catch (_) { /* best-effort */ }
 }
 
 /* ─── Branding KV ──────────────────────────────────────────────────────── */
