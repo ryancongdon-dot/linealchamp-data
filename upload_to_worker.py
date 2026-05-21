@@ -55,7 +55,7 @@ def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--base-url", default=DEFAULT_BASE)
     p.add_argument("--admin-secret", default=os.environ.get("ADMIN_SECRET", ""))
-    p.add_argument("--leagues", default="NBA,NFL,MLB,NHL,EPL,CFB")
+    p.add_argument("--leagues", default="NBA,NFL,MLB,NHL,EPL,CFB,BOXHW")
     p.add_argument("--skip-events", action="store_true",
                    help="Only push lineage (small); skip events (large).")
     p.add_argument("--only-events", action="store_true",

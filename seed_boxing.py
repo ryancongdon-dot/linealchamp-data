@@ -135,7 +135,7 @@ def main() -> int:
     current = changes[-1]["to"]
     seed = changes[0]
     lineage = {
-        "league": "BOX",
+        "league": "BOXHW",
         "seedTeam": seed["to"],
         "seedDate": seed["date"][:10],
         "asOfDate": today,
@@ -143,15 +143,15 @@ def main() -> int:
         "changes": changes,
     }
     events_payload = {
-        "league": "BOX",
+        "league": "BOXHW",
         "asOfDate": today,
         "events": events,
     }
 
-    (OUTPUT_DIR / "lineage-BOX.json").write_text(json.dumps(lineage, indent=2))
-    (OUTPUT_DIR / "events-BOX.json").write_text(json.dumps(events_payload, indent=2))
+    (OUTPUT_DIR / "lineage-BOXHW.json").write_text(json.dumps(lineage, indent=2))
+    (OUTPUT_DIR / "events-BOXHW.json").write_text(json.dumps(events_payload, indent=2))
 
-    print(f"  BOX ✓ {len(changes)} reigns, {len(events)} title fights, current champ: {current}")
+    print(f"  BOXHW ✓ {len(changes)} reigns, {len(events)} title fights, current champ: {current}")
     return 0
 
 

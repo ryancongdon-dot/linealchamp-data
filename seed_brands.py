@@ -525,13 +525,56 @@ CFB = {
     "BROWN":              ("Brown Bears", "#4E3629", "225"),
 }
 
+BOXHW = {
+    # Fighter codes from seed_boxing.py → (display name, accent color, photo url)
+    "SULLIVAN":        ("John L. Sullivan", "#8B0000", None),
+    "CORBETT":         ("James J. Corbett", "#444", None),
+    "FITZSIMMONS":     ("Bob Fitzsimmons", "#444", None),
+    "JEFFRIES":        ("James J. Jeffries", "#444", None),
+    "BURNS":           ("Tommy Burns", "#444", None),
+    "JOHNSON":         ("Jack Johnson", "#222", None),
+    "WILLARD":         ("Jess Willard", "#444", None),
+    "DEMPSEY":         ("Jack Dempsey", "#8B0000", None),
+    "TUNNEY":          ("Gene Tunney", "#444", None),
+    "SCHMELING":       ("Max Schmeling", "#000", None),
+    "SHARKEY":         ("Jack Sharkey", "#444", None),
+    "CARNERA":         ("Primo Carnera", "#444", None),
+    "BAER":            ("Max Baer", "#444", None),
+    "BRADDOCK":        ("James J. Braddock", "#444", None),
+    "JOELOUIS":        ("Joe Louis", "#8B0000", None),
+    "CHARLES":         ("Ezzard Charles", "#444", None),
+    "WALCOTT":         ("Jersey Joe Walcott", "#444", None),
+    "MARCIANO":        ("Rocky Marciano", "#8B0000", None),
+    "PATTERSON":       ("Floyd Patterson", "#444", None),
+    "JOHANSSON":       ("Ingemar Johansson", "#005BBB", None),  # Swedish flag blue
+    "LISTON":          ("Sonny Liston", "#444", None),
+    "MUHAMMADALI":     ("Muhammad Ali", "#B8860B", None),
+    "FRAZIER":         ("Joe Frazier", "#444", None),
+    "FOREMAN":         ("George Foreman", "#8B0000", None),
+    "SPINKSLEON":      ("Leon Spinks", "#444", None),
+    "HOLMES":          ("Larry Holmes", "#444", None),
+    "SPINKSMICHAEL":   ("Michael Spinks", "#444", None),
+    "TYSON":           ("Mike Tyson", "#000", None),
+    "DOUGLAS":         ('James "Buster" Douglas', "#444", None),
+    "HOLYFIELD":       ("Evander Holyfield", "#8B0000", None),
+    "BOWE":            ("Riddick Bowe", "#444", None),
+    "MOORER":          ("Michael Moorer", "#444", None),
+    "BRIGGS":          ("Shannon Briggs", "#444", None),
+    "LEWIS":           ("Lennox Lewis", "#006B3C", None),  # UK/Canada green
+    "RAHMAN":          ("Hasim Rahman", "#444", None),
+    "KLITSCHKOWLAD":   ("Wladimir Klitschko", "#005BBB", None),  # Ukrainian flag blue
+    "FURY":            ("Tyson Fury", "#006B3C", None),
+    "USYK":            ("Oleksandr Usyk", "#FFD500", None),  # Ukrainian flag yellow
+}
+
 TABLES = {
-    "NBA": (NBA, "nba"),
-    "NFL": (NFL, "nfl"),
-    "MLB": (MLB, "mlb"),
-    "NHL": (NHL, "nhl"),
-    "EPL": (EPL, None),  # ESPN soccer uses different slug shape, handled below
-    "CFB": (CFB, "ncaa"),
+    "NBA":   (NBA, "nba"),
+    "NFL":   (NFL, "nfl"),
+    "MLB":   (MLB, "mlb"),
+    "NHL":   (NHL, "nhl"),
+    "EPL":   (EPL, None),  # ESPN soccer uses different slug shape, handled below
+    "CFB":   (CFB, "ncaa"),
+    "BOXHW": (BOXHW, None),  # No logo CDN for boxers in v1; portraits come later.
 }
 
 
@@ -601,7 +644,7 @@ def post(brand: dict, admin_secret: str) -> str:
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--dry-run", action="store_true", help="Print brands, don't POST")
-    p.add_argument("--leagues", default="NBA,NFL,MLB,NHL,EPL,CFB")
+    p.add_argument("--leagues", default="NBA,NFL,MLB,NHL,EPL,CFB,BOXHW")
     args = p.parse_args()
 
     leagues = [L.strip().upper() for L in args.leagues.split(",") if L.strip()]

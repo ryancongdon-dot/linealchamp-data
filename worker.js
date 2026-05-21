@@ -213,6 +213,7 @@ const SUPPORTED_LEAGUES = [
   { key: "NHL" },
   { key: "EPL" },
   { key: "CFB" },
+  { key: "BOXHW" },
 ];
 
 /**
@@ -376,6 +377,8 @@ function norm(s) { return String(s || "").toUpperCase().replace(/\s+/g, ""); }
 
 async function updateLeagueIncremental(league, env) {
   try {
+    // Skip leagues with no live-data adapter (e.g. hand-curated boxing).
+    if (!ADAPTERS[league]) return;
     const lineage = await readMergedLineage(league, env);
     if (!lineage.currentChamp) return; // no static data yet
     const since = lineage.changes.length
@@ -1151,7 +1154,8 @@ const PUBLIC_HTML = `<!doctype html>
   var PALETTE = ['#4f6cf7','#2dd4bf','#fb923c','#f472b6','#a78bfa','#facc15','#34d399'];
   function colorFor(s){ var h=0; for(var i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0; return PALETTE[Math.abs(h)%PALETTE.length]; }
 
-  var LEAGUES = ['NBA','NFL','MLB','NHL','EPL','CFB'];
+  var LEAGUES = ['NBA','NFL','MLB','NHL','EPL','CFB','BOXHW'];
+  var LEAGUE_LABELS = { BOXHW: 'Boxing (HW)' };
   var SHOW_LANDING = !new URLSearchParams(location.search).get('l');
   var league = (new URLSearchParams(location.search).get('l') || 'NBA').toUpperCase();
   if (LEAGUES.indexOf(league) < 0) league = 'NBA';
@@ -1163,7 +1167,8 @@ const PUBLIC_HTML = `<!doctype html>
 
   function renderTabs(){
     el('tabs').innerHTML = LEAGUES.map(function(L){
-      return '<button data-l="'+L+'" '+(L===league?'class="active"':'')+'>'+L+'</button>';
+      var label = LEAGUE_LABELS[L] || L;
+      return '<button data-l="'+L+'" '+(L===league?'class="active"':'')+'>'+label+'</button>';
     }).join('');
     Array.prototype.forEach.call(el('tabs').children, function(b){
       b.addEventListener('click', function(){
@@ -1503,7 +1508,8 @@ const PUBLIC_HTML = `<!doctype html>
 
   function renderLandingPicks(){
     var html = LEAGUES.map(function(L){
-      return '<a href="?l='+L+'">'+L+'</a>';
+      var label = LEAGUE_LABELS[L] || L;
+      return '<a href="?l='+L+'">'+label+'</a>';
     }).join('');
     var a = el('landPick'), b = el('landPick2');
     if (a) a.innerHTML = html;
