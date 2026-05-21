@@ -962,6 +962,56 @@ const PUBLIC_HTML = `<!doctype html>
     border-radius: 10px; min-height: 20px; line-height: 1.6; }
   footer { margin-top: 32px; color: var(--text-dim); font-size: 12px; text-align: center; }
   footer a { color: var(--text-dim); }
+
+  /* Landing page */
+  .landing { display: none; }
+  .landing.on { display: block; }
+  .tracker { display: none; }
+  .tracker.on { display: block; }
+  .land-hero { padding: 72px 24px 48px; text-align: center; }
+  .land-hero .eyebrow { font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 12px; }
+  .land-hero h1 { margin: 0 0 18px; font-size: 64px; line-height: 1.02;
+    letter-spacing: -0.04em; font-weight: 800; }
+  .land-hero h1 .accent { background: linear-gradient(135deg, #facc15, #f59e0b);
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .land-hero .tagline { color: var(--text-dim); font-size: 18px; max-width: 640px;
+    margin: 0 auto 28px; line-height: 1.55; }
+  .land-pick { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+  .land-pick a { display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 20px; background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: 999px; color: var(--text); text-decoration: none; font-weight: 600;
+    font-size: 15px; transition: border-color 0.15s, transform 0.05s; }
+  .land-pick a:hover { border-color: var(--accent); }
+  .land-pick a:active { transform: scale(0.97); }
+  .land-section { max-width: 720px; margin: 60px auto; padding: 0 8px; }
+  .land-section h2 { font-size: 28px; margin: 0 0 14px; letter-spacing: -0.02em; }
+  .land-section p { line-height: 1.7; font-size: 16px; color: var(--text); margin: 0 0 16px; }
+  .land-section p.dim { color: var(--text-dim); }
+  .land-quote { border-left: 3px solid #f59e0b; padding: 4px 0 4px 18px;
+    margin: 24px 0; font-style: italic; color: var(--text); }
+  .land-quote .who { display: block; margin-top: 8px; font-style: normal;
+    font-size: 13px; color: var(--text-dim); letter-spacing: 0.04em; }
+  .land-chain { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 8px; align-items: center; }
+  .land-chain span.name { background: var(--bg-elev); border: 1px solid var(--border);
+    padding: 6px 12px; border-radius: 8px; font-weight: 600; font-size: 14px; }
+  .land-chain span.arrow { color: var(--text-dim); }
+  .land-coverage { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px; margin-top: 14px; }
+  .land-coverage .row { background: var(--bg-elev); border: 1px solid var(--border);
+    padding: 12px 14px; border-radius: 10px; }
+  .land-coverage .row b { display: block; font-size: 15px; margin-bottom: 2px; }
+  .land-coverage .row span { color: var(--text-dim); font-size: 12px; }
+  .land-cta { text-align: center; margin: 56px 0 24px; }
+  .land-cta .land-pick { margin-top: 18px; }
+  @media (max-width: 600px) {
+    .land-hero { padding: 48px 16px 32px; }
+    .land-hero h1 { font-size: 42px; }
+    .land-hero .tagline { font-size: 16px; }
+    .land-section { margin: 40px auto; }
+    .land-section h2 { font-size: 22px; }
+  }
+
   @media (max-width: 600px) {
     .hero { padding: 20px; }
     .hero .champ-text h2 { font-size: 32px; }
@@ -971,7 +1021,81 @@ const PUBLIC_HTML = `<!doctype html>
 </head>
 <body>
 <div class="wrap">
-  <h1>The Lineal Champ <button id="aboutBtn" class="about-link" title="What is a lineal champion?">?</button></h1>
+  <div class="landing" id="landing">
+    <div class="land-hero">
+      <div class="eyebrow">The man who beat the man</div>
+      <h1>The <span class="accent">Lineal</span> Champ</h1>
+      <div class="tagline">A boxing-style championship belt for every major league. The belt only changes hands when the holder loses — never by committee, never by tournament seed, never by sanctioning body. Just the ring.</div>
+      <div class="land-pick" id="landPick"></div>
+    </div>
+
+    <div class="land-section">
+      <h2>What is a lineal champion?</h2>
+      <p>In boxing, the <b>lineal</b> championship is the one passed down in an unbroken chain from "the man who beat the man." A title only changes hands when the reigning champion is defeated — not when they're stripped, not when they vacate, not when an alphabet organization votes a new champion into existence.</p>
+      <p>If you want to be the lineal champ, you don't win a tournament. You go beat the guy who beat the guy.</p>
+      <div class="land-quote">
+        "To be the man, you've got to beat the man."
+        <span class="who">— Ric Flair, paraphrasing roughly a hundred years of boxing tradition</span>
+      </div>
+    </div>
+
+    <div class="land-section">
+      <h2>The origin of the term</h2>
+      <p>The concept goes back to bareknuckle boxing in the 1880s, when there were no sanctioning bodies at all. The heavyweight title was traced as a direct chain of champions:</p>
+      <div class="land-chain">
+        <span class="name">John L. Sullivan</span>
+        <span class="arrow">→</span>
+        <span class="name">Corbett</span>
+        <span class="arrow">→</span>
+        <span class="name">Fitzsimmons</span>
+        <span class="arrow">→</span>
+        <span class="name">Jeffries</span>
+        <span class="arrow">→</span>
+        <span class="name">Burns</span>
+        <span class="arrow">→</span>
+        <span class="name">Johnson</span>
+        <span class="arrow">→</span>
+        <span class="name">…</span>
+      </div>
+      <p>Each man held the title until the next one defeated him. There was no ambiguity. As the 20th century brought competing sanctioning bodies — the WBC, WBA, IBF, WBO, each with their own belt and their own politics — "lineal" became the championship that couldn't be voted into existence or stripped on a technicality.</p>
+      <p>The Ring magazine has tracked lineal title rankings for decades. When a champion retires undefeated, the line is sometimes considered "vacated" and reconstructed from the most recent transfer of the belt. The history is contested in places, which is part of the appeal.</p>
+    </div>
+
+    <div class="land-section">
+      <h2>Applied to team sports</h2>
+      <p>This site asks a simple thought experiment: <i>who would currently hold the lineal belt</i> if a single championship had been on the line every game?</p>
+      <p>We start from a seed team in each league's first season and walk forward through every game ever played. Belt holder wins → they keep it. Belt holder loses → the winner takes it. Ties don't change anything. The current champion is whoever happens to hold the belt when the music stops.</p>
+      <p class="dim">It's not a serious claim that the lineal champ is "the best" team. Lineage is path-dependent — a team can hold the belt for years without ever winning a real championship, or a dynasty can lose the belt early and never get it back. That's part of the charm.</p>
+    </div>
+
+    <div class="land-section">
+      <h2>What we cover</h2>
+      <p class="dim">The lineage for each league is computed from a complete game-by-game record going back to:</p>
+      <div class="land-coverage">
+        <div class="row"><b>NBA</b><span>1947 — BAA inaugural season</span></div>
+        <div class="row"><b>NFL</b><span>2002 — earliest available data</span></div>
+        <div class="row"><b>MLB</b><span>1871 — National Association</span></div>
+        <div class="row"><b>NHL</b><span>1917 — league founding</span></div>
+        <div class="row"><b>EPL</b><span>1992 — Premier League formation</span></div>
+        <div class="row"><b>CFB</b><span>1869 — first college football game</span></div>
+      </div>
+    </div>
+
+    <div class="land-section">
+      <h2>The fine print</h2>
+      <p>Where teams have changed cities or names (Brooklyn Dodgers → Los Angeles Dodgers, St. Louis Rams → Los Angeles Rams), our underlying data sometimes uses different codes for what fans think of as the same franchise. The lineage is "city-faithful," not "fan-faithful" — a relocation usually counts as a new entity.</p>
+      <p>For early-era leagues with many short-lived franchises, the belt automatically transfers to the next game's winner if the current holder hasn't played in over a year. This stops the title from getting permanently stranded on defunct teams like the Fort Wayne Kekiongas (1871) or the Quebec Bulldogs (1920s).</p>
+    </div>
+
+    <div class="land-cta">
+      <h2>Pick a sport.</h2>
+      <p class="dim">Tap any league to see the current belt holder and the entire chain of fights that got them there.</p>
+      <div class="land-pick" id="landPick2"></div>
+    </div>
+  </div>
+
+  <div class="tracker" id="tracker">
+  <h1>The Lineal Champ <button id="aboutBtn" class="about-link" title="About">?</button></h1>
   <div class="tabs" id="tabs"></div>
   <div class="hero" id="hero">
     <div class="accent-bg"></div>
@@ -1014,7 +1138,8 @@ const PUBLIC_HTML = `<!doctype html>
     </div>
   </div>
 
-  <footer><a href="#" id="aboutLink">about</a> · <a href="/admin">admin</a></footer>
+  </div><!-- /tracker -->
+  <footer><a href="/" id="aboutLink">about</a> · <a href="/admin">admin</a></footer>
 </div>
 
 <script>
@@ -1023,6 +1148,7 @@ const PUBLIC_HTML = `<!doctype html>
   function colorFor(s){ var h=0; for(var i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0; return PALETTE[Math.abs(h)%PALETTE.length]; }
 
   var LEAGUES = ['NBA','NFL','MLB','NHL','EPL','CFB'];
+  var SHOW_LANDING = !new URLSearchParams(location.search).get('l');
   var league = (new URLSearchParams(location.search).get('l') || 'NBA').toUpperCase();
   if (LEAGUES.indexOf(league) < 0) league = 'NBA';
 
@@ -1350,32 +1476,7 @@ const PUBLIC_HTML = `<!doctype html>
     el('askPanel').classList.toggle('on');
     if (el('askPanel').classList.contains('on')) el('askInput').focus();
   });
-  function openAboutModal(){
-    var body = '<div class="about-body">'
-      + '<p><b>The Lineal Champ</b> tracks one belt per league — boxing-style. The current champion holds the title until they lose a game; whoever beats them becomes the new champion. Ties don’t change anything. We start from a seed team in each league’s first season and walk forward through every game ever played.</p>'
-      + '<h4>What is a lineal champion?</h4>'
-      + '<p>In boxing, a "lineal" or "linear" championship is the one passed down in unbroken succession from "the man who beat the man." It ignores sanctioning bodies (WBC, WBA, IBF, WBO) entirely — a title only changes hands when the reigning champion is defeated, never through alphabet-soup organizational decisions. If you want to be the lineal champ, you don’t win a tournament. You go beat the guy who beat the guy.</p>'
-      + '<h4>Where does the term come from?</h4>'
-      + '<p>The lineal concept goes back to bareknuckle boxing in the 1880s, when there were no sanctioning bodies at all. The heavyweight title in particular was traced as a direct chain of champions: John L. Sullivan, then Corbett, then Fitzsimmons, then Jeffries, and so on. As multiple governing bodies emerged in the 20th century and started handing out conflicting belts, boxing fans clung to "lineal" as the only championship that couldn’t be voted into existence or stripped on a technicality — you only got it by winning in the ring.</p>'
-      + '<p>Modern boxing publications like <i>The Ring</i> magazine maintain lineal title rankings, and championship lineage is sometimes disputed when a champion retires or vacates without losing. In team sports, applying the same concept is a thought experiment: who would currently be wearing the belt if a single championship had been on the line every game?</p>'
-      + '<h4>How accurate is this?</h4>'
-      + '<p>The lineage is computed from a complete game-by-game log of each league, going back to:</p>'
-      + '<ul>'
-      + '<li><b>NBA</b> — 1947 (BAA inaugural season)</li>'
-      + '<li><b>NFL</b> — 2002 (older data wasn’t available from our source)</li>'
-      + '<li><b>MLB</b> — 1871 (National Association via Retrosheet)</li>'
-      + '<li><b>NHL</b> — 1917 (league founding)</li>'
-      + '<li><b>EPL</b> — 1992 (Premier League formation)</li>'
-      + '<li><b>CFB</b> — 1869 (Rutgers vs Princeton, the first college football game)</li>'
-      + '</ul>'
-      + '<p>For early-era leagues with many short-lived franchises, the belt automatically transfers to the next game’s winner if the current holder hasn’t played in over a year. This avoids the title getting stranded on defunct teams like the Fort Wayne Kekiongas (1871). Where teams have changed cities or names (Brooklyn Dodgers → Los Angeles Dodgers), our source data sometimes uses different codes for what fans think of as the same franchise — which means our lineage is "city-faithful," not "fan-faithful."</p>'
-      + '<h4>Why these sports?</h4>'
-      + '<p>Just the major North American leagues plus English football — the ones where every team plays every other team enough times to make the lineage interesting. We don’t track sports where a "team" plays only a handful of opponents per season.</p>'
-      + '</div>';
-    showModal('About lineal championships', '', body);
-  }
-  el('aboutBtn').addEventListener('click', openAboutModal);
-  el('aboutLink').addEventListener('click', function(e){ e.preventDefault(); openAboutModal(); });
+  if (el('aboutBtn')) el('aboutBtn').addEventListener('click', function(){ location.href = '/'; });
   el('modalClose').addEventListener('click', closeModal);
   el('modalBack').addEventListener('click', function(e){
     if (e.target === el('modalBack')) closeModal();
@@ -1396,7 +1497,22 @@ const PUBLIC_HTML = `<!doctype html>
     }
   });
 
-  renderTabs(); load();
+  function renderLandingPicks(){
+    var html = LEAGUES.map(function(L){
+      return '<a href="?l='+L+'">'+L+'</a>';
+    }).join('');
+    var a = el('landPick'), b = el('landPick2');
+    if (a) a.innerHTML = html;
+    if (b) b.innerHTML = html;
+  }
+
+  if (SHOW_LANDING) {
+    el('landing').classList.add('on');
+    renderLandingPicks();
+  } else {
+    el('tracker').classList.add('on');
+    renderTabs(); load();
+  }
 })();
 </script>
 </body>
