@@ -887,6 +887,15 @@ const PUBLIC_HTML = `<!doctype html>
   .stat .k { color: var(--text-dim); font-size: 11px; text-transform: uppercase;
     letter-spacing: 0.08em; margin-top: 4px; }
   .stat .hint { color: var(--text-dim); font-size: 10px; margin-top: 6px; opacity: 0.5; }
+  .about-link { display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 999px; background: var(--bg-elev);
+    border: 1px solid var(--border); color: var(--text-dim); font-size: 14px;
+    font-weight: 700; cursor: pointer; margin-left: 12px; vertical-align: middle; padding: 0; }
+  .about-link:hover { color: var(--text); border-color: var(--accent); }
+  .about-body p { line-height: 1.65; margin: 0 0 12px; font-size: 14px; }
+  .about-body h4 { margin: 18px 0 6px; font-size: 14px; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-dim); }
+  .about-body ul { margin: 0 0 12px; padding-left: 20px; line-height: 1.65; font-size: 14px; }
   .modal-back { position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 50;
     display: none; align-items: flex-start; justify-content: center; padding: 60px 16px;
     overflow-y: auto; }
@@ -962,7 +971,7 @@ const PUBLIC_HTML = `<!doctype html>
 </head>
 <body>
 <div class="wrap">
-  <h1>The Lineal Champ</h1>
+  <h1>The Lineal Champ <button id="aboutBtn" class="about-link" title="What is a lineal champion?">?</button></h1>
   <div class="tabs" id="tabs"></div>
   <div class="hero" id="hero">
     <div class="accent-bg"></div>
@@ -1005,7 +1014,7 @@ const PUBLIC_HTML = `<!doctype html>
     </div>
   </div>
 
-  <footer><a href="/admin">admin</a></footer>
+  <footer><a href="#" id="aboutLink">about</a> · <a href="/admin">admin</a></footer>
 </div>
 
 <script>
@@ -1341,6 +1350,32 @@ const PUBLIC_HTML = `<!doctype html>
     el('askPanel').classList.toggle('on');
     if (el('askPanel').classList.contains('on')) el('askInput').focus();
   });
+  function openAboutModal(){
+    var body = '<div class="about-body">'
+      + '<p><b>The Lineal Champ</b> tracks one belt per league — boxing-style. The current champion holds the title until they lose a game; whoever beats them becomes the new champion. Ties don’t change anything. We start from a seed team in each league’s first season and walk forward through every game ever played.</p>'
+      + '<h4>What is a lineal champion?</h4>'
+      + '<p>In boxing, a "lineal" or "linear" championship is the one passed down in unbroken succession from "the man who beat the man." It ignores sanctioning bodies (WBC, WBA, IBF, WBO) entirely — a title only changes hands when the reigning champion is defeated, never through alphabet-soup organizational decisions. If you want to be the lineal champ, you don’t win a tournament. You go beat the guy who beat the guy.</p>'
+      + '<h4>Where does the term come from?</h4>'
+      + '<p>The lineal concept goes back to bareknuckle boxing in the 1880s, when there were no sanctioning bodies at all. The heavyweight title in particular was traced as a direct chain of champions: John L. Sullivan, then Corbett, then Fitzsimmons, then Jeffries, and so on. As multiple governing bodies emerged in the 20th century and started handing out conflicting belts, boxing fans clung to "lineal" as the only championship that couldn’t be voted into existence or stripped on a technicality — you only got it by winning in the ring.</p>'
+      + '<p>Modern boxing publications like <i>The Ring</i> magazine maintain lineal title rankings, and championship lineage is sometimes disputed when a champion retires or vacates without losing. In team sports, applying the same concept is a thought experiment: who would currently be wearing the belt if a single championship had been on the line every game?</p>'
+      + '<h4>How accurate is this?</h4>'
+      + '<p>The lineage is computed from a complete game-by-game log of each league, going back to:</p>'
+      + '<ul>'
+      + '<li><b>NBA</b> — 1947 (BAA inaugural season)</li>'
+      + '<li><b>NFL</b> — 2002 (older data wasn’t available from our source)</li>'
+      + '<li><b>MLB</b> — 1871 (National Association via Retrosheet)</li>'
+      + '<li><b>NHL</b> — 1917 (league founding)</li>'
+      + '<li><b>EPL</b> — 1992 (Premier League formation)</li>'
+      + '<li><b>CFB</b> — 1869 (Rutgers vs Princeton, the first college football game)</li>'
+      + '</ul>'
+      + '<p>For early-era leagues with many short-lived franchises, the belt automatically transfers to the next game’s winner if the current holder hasn’t played in over a year. This avoids the title getting stranded on defunct teams like the Fort Wayne Kekiongas (1871). Where teams have changed cities or names (Brooklyn Dodgers → Los Angeles Dodgers), our source data sometimes uses different codes for what fans think of as the same franchise — which means our lineage is "city-faithful," not "fan-faithful."</p>'
+      + '<h4>Why these sports?</h4>'
+      + '<p>Just the major North American leagues plus English football — the ones where every team plays every other team enough times to make the lineage interesting. We don’t track sports where a "team" plays only a handful of opponents per season.</p>'
+      + '</div>';
+    showModal('About lineal championships', '', body);
+  }
+  el('aboutBtn').addEventListener('click', openAboutModal);
+  el('aboutLink').addEventListener('click', function(e){ e.preventDefault(); openAboutModal(); });
   el('modalClose').addEventListener('click', closeModal);
   el('modalBack').addEventListener('click', function(e){
     if (e.target === el('modalBack')) closeModal();
