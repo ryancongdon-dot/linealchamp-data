@@ -526,45 +526,47 @@ CFB = {
 }
 
 BOXHW = {
-    # Fighter codes from seed_boxing.py → (display name, accent color, photo url)
-    "SULLIVAN":        ("John L. Sullivan", "#8B0000", None),
-    "CORBETT":         ("James J. Corbett", "#444", None),
-    "FITZSIMMONS":     ("Bob Fitzsimmons", "#444", None),
-    "JEFFRIES":        ("James J. Jeffries", "#444", None),
-    "BURNS":           ("Tommy Burns", "#444", None),
-    "JOHNSON":         ("Jack Johnson", "#222", None),
-    "WILLARD":         ("Jess Willard", "#444", None),
-    "DEMPSEY":         ("Jack Dempsey", "#8B0000", None),
-    "TUNNEY":          ("Gene Tunney", "#444", None),
-    "SCHMELING":       ("Max Schmeling", "#000", None),
-    "SHARKEY":         ("Jack Sharkey", "#444", None),
-    "CARNERA":         ("Primo Carnera", "#444", None),
-    "BAER":            ("Max Baer", "#444", None),
-    "BRADDOCK":        ("James J. Braddock", "#444", None),
-    "JOELOUIS":        ("Joe Louis", "#8B0000", None),
-    "CHARLES":         ("Ezzard Charles", "#444", None),
-    "WALCOTT":         ("Jersey Joe Walcott", "#444", None),
-    "MARCIANO":        ("Rocky Marciano", "#8B0000", None),
-    "PATTERSON":       ("Floyd Patterson", "#444", None),
-    "JOHANSSON":       ("Ingemar Johansson", "#005BBB", None),  # Swedish flag blue
-    "LISTON":          ("Sonny Liston", "#444", None),
-    "MUHAMMADALI":     ("Muhammad Ali", "#B8860B", None),
-    "FRAZIER":         ("Joe Frazier", "#444", None),
-    "FOREMAN":         ("George Foreman", "#8B0000", None),
-    "SPINKSLEON":      ("Leon Spinks", "#444", None),
-    "HOLMES":          ("Larry Holmes", "#444", None),
-    "SPINKSMICHAEL":   ("Michael Spinks", "#444", None),
-    "TYSON":           ("Mike Tyson", "#000", None),
-    "DOUGLAS":         ('James "Buster" Douglas', "#444", None),
-    "HOLYFIELD":       ("Evander Holyfield", "#8B0000", None),
-    "BOWE":            ("Riddick Bowe", "#444", None),
-    "MOORER":          ("Michael Moorer", "#444", None),
-    "BRIGGS":          ("Shannon Briggs", "#444", None),
-    "LEWIS":           ("Lennox Lewis", "#006B3C", None),  # UK/Canada green
-    "RAHMAN":          ("Hasim Rahman", "#444", None),
-    "KLITSCHKOWLAD":   ("Wladimir Klitschko", "#005BBB", None),  # Ukrainian flag blue
-    "FURY":            ("Tyson Fury", "#006B3C", None),
-    "USYK":            ("Oleksandr Usyk", "#FFD500", None),  # Ukrainian flag yellow
+    # Fighter codes from seed_boxing.py → (display name, accent color, Wikipedia page title)
+    # The Wikipedia title is used at seed time to fetch a portrait via the
+    # REST summary API; the resulting CDN URL is stored as the logo.
+    "SULLIVAN":        ("John L. Sullivan", "#8B0000", "John L. Sullivan"),
+    "CORBETT":         ("James J. Corbett", "#444", "James J. Corbett"),
+    "FITZSIMMONS":     ("Bob Fitzsimmons", "#444", "Bob Fitzsimmons"),
+    "JEFFRIES":        ("James J. Jeffries", "#444", "James J. Jeffries"),
+    "BURNS":           ("Tommy Burns", "#444", "Tommy Burns (boxer)"),
+    "JOHNSON":         ("Jack Johnson", "#222", "Jack Johnson (boxer)"),
+    "WILLARD":         ("Jess Willard", "#444", "Jess Willard"),
+    "DEMPSEY":         ("Jack Dempsey", "#8B0000", "Jack Dempsey"),
+    "TUNNEY":          ("Gene Tunney", "#444", "Gene Tunney"),
+    "SCHMELING":       ("Max Schmeling", "#000", "Max Schmeling"),
+    "SHARKEY":         ("Jack Sharkey", "#444", "Jack Sharkey"),
+    "CARNERA":         ("Primo Carnera", "#444", "Primo Carnera"),
+    "BAER":            ("Max Baer", "#444", "Max Baer"),
+    "BRADDOCK":        ("James J. Braddock", "#444", "James J. Braddock"),
+    "JOELOUIS":        ("Joe Louis", "#8B0000", "Joe Louis"),
+    "CHARLES":         ("Ezzard Charles", "#444", "Ezzard Charles"),
+    "WALCOTT":         ("Jersey Joe Walcott", "#444", "Jersey Joe Walcott"),
+    "MARCIANO":        ("Rocky Marciano", "#8B0000", "Rocky Marciano"),
+    "PATTERSON":       ("Floyd Patterson", "#444", "Floyd Patterson"),
+    "JOHANSSON":       ("Ingemar Johansson", "#005BBB", "Ingemar Johansson"),
+    "LISTON":          ("Sonny Liston", "#444", "Sonny Liston"),
+    "MUHAMMADALI":     ("Muhammad Ali", "#B8860B", "Muhammad Ali"),
+    "FRAZIER":         ("Joe Frazier", "#444", "Joe Frazier"),
+    "FOREMAN":         ("George Foreman", "#8B0000", "George Foreman"),
+    "SPINKSLEON":      ("Leon Spinks", "#444", "Leon Spinks"),
+    "HOLMES":          ("Larry Holmes", "#444", "Larry Holmes"),
+    "SPINKSMICHAEL":   ("Michael Spinks", "#444", "Michael Spinks"),
+    "TYSON":           ("Mike Tyson", "#000", "Mike Tyson"),
+    "DOUGLAS":         ('James "Buster" Douglas', "#444", "Buster Douglas"),
+    "HOLYFIELD":       ("Evander Holyfield", "#8B0000", "Evander Holyfield"),
+    "BOWE":            ("Riddick Bowe", "#444", "Riddick Bowe"),
+    "MOORER":          ("Michael Moorer", "#444", "Michael Moorer"),
+    "BRIGGS":          ("Shannon Briggs", "#444", "Shannon Briggs"),
+    "LEWIS":           ("Lennox Lewis", "#006B3C", "Lennox Lewis"),
+    "RAHMAN":          ("Hasim Rahman", "#444", "Hasim Rahman"),
+    "KLITSCHKOWLAD":   ("Wladimir Klitschko", "#005BBB", "Wladimir Klitschko"),
+    "FURY":            ("Tyson Fury", "#006B3C", "Tyson Fury"),
+    "USYK":            ("Oleksandr Usyk", "#FFD500", "Oleksandr Usyk"),
 }
 
 TABLES = {
@@ -587,9 +589,36 @@ def prettify(code: str) -> str:
     return code
 
 
+_WIKI_CACHE: dict[str, str] = {}
+
+def wiki_portrait(title: str) -> Optional[str]:
+    """Return a stable CDN URL for the Wikipedia article's lead image, or None."""
+    if not title:
+        return None
+    if title in _WIKI_CACHE:
+        return _WIKI_CACHE[title] or None
+    try:
+        url = "https://en.wikipedia.org/api/rest_v1/page/summary/" + requests.utils.quote(title, safe="")
+        r = requests.get(url, headers={"User-Agent": "linealchamp-seed/1.0"}, timeout=15)
+        if r.status_code != 200:
+            _WIKI_CACHE[title] = ""
+            return None
+        j = r.json()
+        # Prefer thumbnail (smaller, faster) over originalimage.
+        src = (j.get("thumbnail") or {}).get("source") or (j.get("originalimage") or {}).get("source")
+        _WIKI_CACHE[title] = src or ""
+        return src
+    except Exception:
+        _WIKI_CACHE[title] = ""
+        return None
+
+
 def logo_for(sport: str, league: str, slug) -> Optional[str]:
     if not slug:
         return None
+    if league == "BOXHW":
+        # slug is a Wikipedia page title for boxers; resolve to portrait URL.
+        return wiki_portrait(slug)
     if league == "EPL":
         # ESPN soccer: https://a.espncdn.com/i/teamlogos/soccer/500/<slug>.png
         return f"https://a.espncdn.com/i/teamlogos/soccer/500/{slug}.png"
