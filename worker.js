@@ -51,31 +51,41 @@ export default {
     try {
       // ─── Public read endpoints ─────────────────────────────────────────
       if (url.pathname === "/api/leagues") {
-        return cors.cachedJson({ leagues: SUPPORTED_LEAGUES.map(l => l.key) }, 200, 3600);
+        return await cached(request, ctx, 3600, async () =>
+          cors.cachedJson({ leagues: SUPPORTED_LEAGUES.map(l => l.key) }, 200, 3600)
+        );
       }
 
       if (url.pathname === "/api/lineage") {
         const league = leagueFrom(url); guardLeague(league);
-        const lineage = await readMergedLineage(league, env);
-        if (!lineage.currentChamp && lineage.changes.length === 0) {
-          return cors.json({ error: "No data yet. Run build_lineage.py and upload_to_worker.py." }, 404);
-        }
-        return cors.cachedJson(lineage);
+        return await cached(request, ctx, 300, async () => {
+          const lineage = await readMergedLineage(league, env);
+          if (!lineage.currentChamp && lineage.changes.length === 0) {
+            return cors.json({ error: "No data yet. Run build_lineage.py and upload_to_worker.py." }, 404);
+          }
+          return cors.cachedJson(lineage);
+        });
       }
 
       if (url.pathname === "/api/events") {
         const league = leagueFrom(url); guardLeague(league);
-        return await streamEventsFromKV(league, env, cors);
+        return await cached(request, ctx, 3600, async () =>
+          await streamEventsFromKV(league, env, cors)
+        );
       }
 
       if (url.pathname === "/api/stats") {
         const league = leagueFrom(url); guardLeague(league);
-        return cors.cachedJson(await computeStatsFromLineage(league, env));
+        return await cached(request, ctx, 300, async () =>
+          cors.cachedJson(await computeStatsFromLineage(league, env))
+        );
       }
 
       if (url.pathname === "/api/brand") {
         const league = leagueFrom(url); guardLeague(league);
-        return cors.cachedJson(await loadBrand(env, league), 200, 3600);
+        return await cached(request, ctx, 3600, async () =>
+          cors.cachedJson(await loadBrand(env, league), 200, 3600)
+        );
       }
 
       // ─── Admin: lineage upload / status ─────────────────────────────────
@@ -97,6 +107,7 @@ export default {
         }));
         // Wipe any stale deltas (they're now embedded in the new static set).
         await env.KV.delete(`${league}:deltaChanges`);
+        await invalidateLineageCache(url, league);
         return cors.json({ ok: true, league, changes: body.changes.length, currentChamp: body.currentChamp });
       }
 
@@ -113,6 +124,7 @@ export default {
           events: body.events,
           uploadedAt: new Date().toISOString(),
         }));
+        await invalidateLineageCache(url, league);
         return cors.json({ ok: true, league, eventCount: body.events.length });
       }
 
@@ -686,12 +698,51 @@ async function fetchCFBRecent(teamCode, start, end) {
 }
 
 async function invalidateBrandCache(reqUrl, league) {
+  await invalidatePaths(reqUrl, ["/api/brand"], league);
+}
+
+async function invalidateLineageCache(reqUrl, league) {
+  await invalidatePaths(reqUrl, ["/api/lineage", "/api/stats", "/api/events"], league);
+}
+
+async function invalidatePaths(reqUrl, paths, league) {
   try {
-    const u = new URL(reqUrl.toString());
-    u.pathname = "/api/brand";
-    u.search = "?league=" + league;
-    await caches.default.delete(u.toString());
+    const cache = caches.default;
+    for (const p of paths) {
+      const u = new URL(reqUrl.toString());
+      u.pathname = p;
+      u.search = "?league=" + league;
+      await cache.delete(u.toString());
+    }
   } catch (_) { /* best-effort */ }
+}
+
+// Edge-cache wrapper. Reads from caches.default (Cloudflare's per-colo edge
+// cache) before invoking the builder. On miss, builds the response, stores
+// it in the cache with the given TTL, and returns it. Only GET responses
+// with status 200 are cached.
+async function cached(request, ctx, ttlSeconds, builder) {
+  if (request.method !== "GET") return await builder();
+  const cache = caches.default;
+  const cacheKey = request.url;
+  const hit = await cache.match(cacheKey);
+  if (hit) {
+    const h = new Response(hit.body, hit);
+    h.headers.set("x-cache", "HIT");
+    return h;
+  }
+  const fresh = await builder();
+  if (fresh.status === 200) {
+    const toCache = new Response(fresh.body, fresh);
+    toCache.headers.set("cache-control", `public, max-age=${ttlSeconds}`);
+    toCache.headers.set("x-cache", "MISS");
+    // Mirror to client and edge in parallel.
+    const [client, edge] = [toCache.clone(), toCache.clone()];
+    if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(cacheKey, edge));
+    else await cache.put(cacheKey, edge);
+    return client;
+  }
+  return fresh;
 }
 
 /* ─── Branding KV ──────────────────────────────────────────────────────── */
