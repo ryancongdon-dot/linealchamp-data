@@ -1513,32 +1513,20 @@ const PUBLIC_HTML = `<!doctype html>
   }
   // Fallback boxer portraits — for fighters whose Wikipedia article lacks the
   // structured pageimage tag (so the brand-seed Action API couldn't auto-find
-  // a thumbnail). Hot-links via Wikipedia's Special:FilePath redirect, which
-  // resolves to the canonical CDN URL.
-  function wf(filename, width){ return 'https://en.wikipedia.org/wiki/Special:FilePath/' + encodeURIComponent(filename) + '?width=' + (width || 400); }
+  // a thumbnail). Verified URLs from the REST media-list endpoint.
   var STATIC_BRAND_PORTRAITS = {
-    MUHAMMADALI:    wf('Muhammad Ali NYWTS.jpg'),
-    LISTON:         wf('Sonny Liston NYWTS.jpg'),
-    JOELOUIS:       wf('Joe Louis - publicity.JPG'),
-    MARCIANO:       wf('Rocky Marciano - 1953.jpg'),
-    FOREMAN:        wf('George Foreman 2018.jpg'),
-    FRAZIER:        wf('Joe Frazier - 1971.jpg'),
-    HOLYFIELD:      wf('Evander Holyfield at the 2010 Tribeca Film Festival.jpg'),
-    HOLMES:         wf('Larry Holmes 2014.jpg'),
-    LEWIS:          wf('Lennox Lewis 2007.jpg'),
-    KLITSCHKOWLAD:  wf('Wladimir Klitschko 2014.jpg'),
-    FURY:           wf('Tyson Fury LA 2018.jpg'),
-    JOHANSSON:      wf('Ingemar Johansson 1959.jpg'),
-    PATTERSON:      wf('Floyd Patterson 1962.jpg'),
-    JOHNSON:        wf('Jack Johnson1.jpg'),
-    JEFFRIES:       wf('James J Jeffries.jpg'),
-    FITZSIMMONS:    wf('Bob Fitzsimmons.jpg'),
-    BURNS:          wf('Tommy Burns boxer.jpg'),
-    SCHMELING:      wf('Bundesarchiv Bild 102-10460, Max Schmeling.jpg'),
-    SHARKEY:        wf('Jack Sharkey 1932.jpg'),
-    BAER:           wf('Max Baer.jpg'),
-    RAHMAN:         wf('Hasim Rahman.jpg'),
-    MOORER:         wf('Michael Moorer.jpg'),
+    MUHAMMADALI:    'https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Muhammad_Ali_NYWTS.jpg/1280px-Muhammad_Ali_NYWTS.jpg',
+    LISTON:         'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Sonny_Liston_portrait_on_March_1978_cover_Big_Book_Of_Boxing_Magazine.jpg/1280px-Sonny_Liston_portrait_on_March_1978_cover_Big_Book_Of_Boxing_Magazine.jpg',
+    JOELOUIS:       'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Joe_Louis_by_van_Vechten.jpg/1280px-Joe_Louis_by_van_Vechten.jpg',
+    MARCIANO:       'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Rocky_Marciano_%28cropped%29.jpg/1280px-Rocky_Marciano_%28cropped%29.jpg',
+    FOREMAN:        'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/George_Foreman_%281973%29.jpg/1280px-George_Foreman_%281973%29.jpg',
+    FRAZIER:        'https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/Joe_Frazier_reading_newspaper_cropped.jpg/1280px-Joe_Frazier_reading_newspaper_cropped.jpg',
+    HOLYFIELD:      'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Evander_Holyfield_LA_2011.jpg/500px-Evander_Holyfield_LA_2011.jpg',
+    HOLMES:         'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/Larry_Holmes_1996.jpg/1280px-Larry_Holmes_1996.jpg',
+    LEWIS:          'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Lenox_Lewis_2010_cropped.jpg/1280px-Lenox_Lewis_2010_cropped.jpg',
+    KLITSCHKOWLAD:  'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Volodymyr_Klychko_%28Vladimir_Klitschko%29_of_Ukraine_at_the_59th_Munich_Security_Conference_in_Munich_on_17_February_2023_-_%28cropped%29.jpg/1280px-Volodymyr_Klychko_%28Vladimir_Klitschko%29_of_Ukraine_at_the_59th_Munich_Security_Conference_in_Munich_on_17_February_2023_-_%28cropped%29.jpg',
+    // Remaining 12 boxers' portraits weren't in the article's section 0
+    // (lead). A follow-up run with relaxed filtering will fill these in.
   };
 
   function brandFor(code){

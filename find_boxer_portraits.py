@@ -54,25 +54,24 @@ def find_portrait(title: str) -> str | None:
         if r.status_code != 200:
             return None
         j = r.json()
-        for item in j.get("items", []):
-            if item.get("type") != "image":
-                continue
-            section_id = item.get("section_id", 99)
-            # Lead images sit in section 0; sticking to it dodges historical
-            # photos buried lower in the article.
-            if section_id != 0:
-                continue
-            title = (item.get("title") or "").lower()
-            if any(p in title for p in SKIP_FILE_PATTERNS):
-                continue
-            srcset = item.get("srcset") or []
-            if not srcset:
-                continue
-            # Pick the largest available thumbnail.
-            best = srcset[-1].get("src") or srcset[0].get("src")
-            if best and best.startswith("//"):
-                best = "https:" + best
-            return best
+        # First pass: section 0 (the lead/infobox).
+        # Second pass: anywhere on the page if no section-0 portrait exists.
+        for required_section in (0, None):
+            for item in j.get("items", []):
+                if item.get("type") != "image":
+                    continue
+                if required_section is not None and item.get("section_id") != required_section:
+                    continue
+                title_lower = (item.get("title") or "").lower()
+                if any(p in title_lower for p in SKIP_FILE_PATTERNS):
+                    continue
+                srcset = item.get("srcset") or []
+                if not srcset:
+                    continue
+                best = srcset[-1].get("src") or srcset[0].get("src")
+                if best and best.startswith("//"):
+                    best = "https:" + best
+                return best
         return None
     except Exception as e:
         print(f"  {title}: error {e}", file=sys.stderr)
