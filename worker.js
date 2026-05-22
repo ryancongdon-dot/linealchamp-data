@@ -1399,12 +1399,12 @@ const PUBLIC_HTML = `<!doctype html>
     {
       year: 1921, date: 'Jul 2, 1921', title: 'The first million-dollar gate',
       who: ['DEMPSEY'],
-      text: 'Jack Dempsey vs Georges Carpentier in Jersey City draws boxing\'s first $1M+ live gate. Radio broadcasts the fight for the first time. The Roaring Twenties have a heavyweight champion.',
+      text: 'Jack Dempsey vs Georges Carpentier in Jersey City draws boxing’s first $1M+ live gate. Radio broadcasts the fight for the first time. The Roaring Twenties have a heavyweight champion.',
     },
     {
-      year: 1938, date: 'Jun 22, 1938', title: 'A nation\'s revenge',
+      year: 1938, date: 'Jun 22, 1938', title: 'A nation’s revenge',
       who: ['JOELOUIS', 'SCHMELING'],
-      text: 'Joe Louis avenges his 1936 loss to Max Schmeling — the Nazi regime\'s symbol — in 124 seconds at Yankee Stadium. The fight is broadcast in four languages to a global audience. Louis is treated as an American hero overnight.',
+      text: 'Joe Louis avenges his 1936 loss to Max Schmeling — the Nazi regime’s symbol — in 124 seconds at Yankee Stadium. The fight is broadcast in four languages to a global audience. Louis is treated as an American hero overnight.',
     },
     {
       year: 1956, date: 'Apr 27, 1956', title: 'Marciano walks away',
@@ -1429,17 +1429,17 @@ const PUBLIC_HTML = `<!doctype html>
     {
       year: 1975, date: 'Oct 1, 1975', title: 'Thrilla in Manila',
       who: ['MUHAMMADALI', 'FRAZIER'],
-      text: 'Ali vs Frazier III: 14 rounds of brutal trench warfare in 100-degree heat. Frazier\'s corner stops the fight before the 15th. Both fighters say later that they nearly died in the ring. Neither is the same again.',
+      text: 'Ali vs Frazier III: 14 rounds of brutal trench warfare in 100-degree heat. Frazier’s corner stops the fight before the 15th. Both fighters say later that they nearly died in the ring. Neither is the same again.',
     },
     {
       year: 1990, date: 'Feb 11, 1990', title: 'The Tokyo Upset',
       who: ['DOUGLAS', 'TYSON'],
-      text: '42-1 underdog James "Buster" Douglas knocks out the seemingly invincible Mike Tyson in the 10th round. Tyson\'s trainers had no ice for the swelling under his eye between rounds. Considered by many the biggest upset in sports history.',
+      text: '42-1 underdog James "Buster" Douglas knocks out the seemingly invincible Mike Tyson in the 10th round. Tyson’s trainers had no ice for the swelling under his eye between rounds. Considered by many the biggest upset in sports history.',
     },
     {
       year: 1997, date: 'Jun 28, 1997', title: 'The Bite Fight',
       who: ['HOLYFIELD', 'TYSON'],
-      text: 'Tyson is disqualified for biting both of Evander Holyfield\'s ears. Holyfield retains his WBA crown and, by extension, keeps his place in the lineal conversation. Tyson never regains the stature he had before this night.',
+      text: 'Tyson is disqualified for biting both of Evander Holyfield’s ears. Holyfield retains his WBA crown and, by extension, keeps his place in the lineal conversation. Tyson never regains the stature he had before this night.',
     },
     {
       year: 2011, date: 'Jul 2, 2011', title: 'A unifier at last',
@@ -1449,7 +1449,7 @@ const PUBLIC_HTML = `<!doctype html>
     {
       year: 2015, date: 'Nov 28, 2015', title: 'The Gypsy King',
       who: ['FURY', 'KLITSCHKOWLAD'],
-      text: 'Tyson Fury, 6\'9", outpoints Wladimir Klitschko in Düsseldorf, ending Klitschko\'s decade at the top. Within a year, Fury vacates the belts during a public battle with mental illness and addiction. He doesn\'t lose in the ring — the lineal title goes with him.',
+      text: 'Tyson Fury, 6’9", outpoints Wladimir Klitschko in Düsseldorf, ending Klitschko’s decade at the top. Within a year, Fury vacates the belts during a public battle with mental illness and addiction. He doesn’t lose in the ring — the lineal title goes with him.',
     },
     {
       year: 2020, date: 'Feb 22, 2020', title: 'The comeback',
@@ -1459,7 +1459,7 @@ const PUBLIC_HTML = `<!doctype html>
     {
       year: 2024, date: 'May 18, 2024', title: 'Undisputed',
       who: ['USYK', 'FURY'],
-      text: 'Oleksandr Usyk edges Fury by split decision in Riyadh to become the first undisputed heavyweight champion of the four-belt era — holding WBA, WBC, IBF, and WBO simultaneously, a unification that hasn\'t happened in 24 years.',
+      text: 'Oleksandr Usyk edges Fury by split decision in Riyadh to become the first undisputed heavyweight champion of the four-belt era — holding WBA, WBC, IBF, and WBO simultaneously, a unification that hasn’t happened in 24 years.',
     },
   ];
 
@@ -1467,7 +1467,7 @@ const PUBLIC_HTML = `<!doctype html>
     var moments = LORE_MOMENTS.slice().reverse(); // newest first
     var body =
       '<div class="lore-intro">'
-      + '<p><strong>"The man who beat the man."</strong> The phrase predates this website by a century — it\'s how boxing historians talked about a championship that wasn\'t handed out by a sanctioning body but earned in the ring against the previous holder.</p>'
+      + '<p><strong>"The man who beat the man."</strong> The phrase predates this website by a century — it’s how boxing historians talked about a championship that wasn’t handed out by a sanctioning body but earned in the ring against the previous holder.</p>'
       + '<p>When the alphabet titles (WBA, WBC, IBF, WBO) splintered the official championship across the 1960s, 70s, and 80s, the <em>lineal</em> title became the consensus belt — the one whose holder could draw an unbroken line back to John L. Sullivan in 1882. This is that line. Every fight that mattered. Every name that mattered.</p>'
       + '</div>'
       + '<div class="lore-list">'
