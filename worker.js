@@ -1525,8 +1525,16 @@ const PUBLIC_HTML = `<!doctype html>
     HOLMES:         'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/Larry_Holmes_1996.jpg/1280px-Larry_Holmes_1996.jpg',
     LEWIS:          'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Lenox_Lewis_2010_cropped.jpg/1280px-Lenox_Lewis_2010_cropped.jpg',
     KLITSCHKOWLAD:  'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Volodymyr_Klychko_%28Vladimir_Klitschko%29_of_Ukraine_at_the_59th_Munich_Security_Conference_in_Munich_on_17_February_2023_-_%28cropped%29.jpg/1280px-Volodymyr_Klychko_%28Vladimir_Klitschko%29_of_Ukraine_at_the_59th_Munich_Security_Conference_in_Munich_on_17_February_2023_-_%28cropped%29.jpg',
-    // Remaining 12 boxers' portraits weren't in the article's section 0
-    // (lead). A follow-up run with relaxed filtering will fill these in.
+    FURY:           'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Tyson_Fury_at_Place_Bell%2C_Laval_Quebec%2C_Canada_-_Dec_16_2017_%28cropped%29.jpg/500px-Tyson_Fury_at_Place_Bell%2C_Laval_Quebec%2C_Canada_-_Dec_16_2017_%28cropped%29.jpg',
+    JOHANSSON:      'https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/IngemarJohansson_2.jpg/1280px-IngemarJohansson_2.jpg',
+    PATTERSON:      'https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Floyd_Patterson_2_%28cropped%29.jpg/500px-Floyd_Patterson_2_%28cropped%29.jpg',
+    JOHNSON:        'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Jack_Johnson%2C_1915_%28edit%29.jpg/500px-Jack_Johnson%2C_1915_%28edit%29.jpg',
+    JEFFRIES:       'https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/James_J_Jeffries.jpg/500px-James_J_Jeffries.jpg',
+    FITZSIMMONS:    'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Robert_Fitzsimmons.jpg/500px-Robert_Fitzsimmons.jpg',
+    SCHMELING:      'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Bundesarchiv_Bild_102-09348%2C_Max_Schmeling.jpg/500px-Bundesarchiv_Bild_102-09348%2C_Max_Schmeling.jpg',
+    SHARKEY:        'https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/Jack_Sharkey_01_%28cropped%29.tif/lossy-page1-1280px-Jack_Sharkey_01_%28cropped%29.tif.jpg',
+    // Burns, Baer, Rahman, Moorer — Wikipedia article has no usable lead image;
+    // the lore modal will show a name-tile fallback for those.
   };
 
   function brandFor(code){
