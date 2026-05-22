@@ -1533,8 +1533,7 @@ const PUBLIC_HTML = `<!doctype html>
     FITZSIMMONS:    'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Robert_Fitzsimmons.jpg/500px-Robert_Fitzsimmons.jpg',
     SCHMELING:      'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Bundesarchiv_Bild_102-09348%2C_Max_Schmeling.jpg/500px-Bundesarchiv_Bild_102-09348%2C_Max_Schmeling.jpg',
     SHARKEY:        'https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/Jack_Sharkey_01_%28cropped%29.tif/lossy-page1-1280px-Jack_Sharkey_01_%28cropped%29.tif.jpg',
-    // Burns, Baer, Rahman, Moorer — Wikipedia article has no usable lead image;
-    // the lore modal will show a name-tile fallback for those.
+    BURNS:          'https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/Tommy_Burns_1912.jpg/500px-Tommy_Burns_1912.jpg',
   };
 
   function brandFor(code){
