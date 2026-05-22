@@ -569,14 +569,60 @@ BOXHW = {
     "USYK":            ("Oleksandr Usyk", "#FFD500", "Oleksandr Usyk"),
 }
 
+BOXLHW = {
+    # Light heavyweight champions (1903–present). Wikipedia titles for portrait fetch.
+    "ROOT":           ("Jack Root", "#444", "Jack Root"),
+    "GARDNER":        ("George Gardner", "#444", "George Gardner (boxer)"),
+    "FITZSIMMONSBOB": ("Bob Fitzsimmons", "#444", "Bob Fitzsimmons"),
+    "OBRIENJACK":     ("Philadelphia Jack O'Brien", "#444", "Jack O'Brien (boxer)"),
+    "LEVINSKY":       ("Battling Levinsky", "#444", "Battling Levinsky"),
+    "CARPENTIER":     ("Georges Carpentier", "#0055A4", "Georges Carpentier"),  # French
+    "SIKI":           ("Battling Siki", "#444", "Battling Siki"),
+    "MCTIGUE":        ("Mike McTigue", "#009B48", "Mike McTigue"),  # Irish
+    "BERLENBACH":     ("Paul Berlenbach", "#444", "Paul Berlenbach"),
+    "DELANEY":        ("Jack Delaney", "#444", "Jack Delaney (boxer)"),
+    "LOUGHRAN":       ("Tommy Loughran", "#444", "Tommy Loughran"),
+    "ROSENBLOOM":     ("Maxie Rosenbloom", "#444", "Maxie Rosenbloom"),
+    "OLIN":           ("Bob Olin", "#444", "Bob Olin"),
+    "LEWISJOHNHENRY": ("John Henry Lewis", "#222", "John Henry Lewis"),
+    "BETTINA":        ("Melio Bettina", "#444", "Melio Bettina"),
+    "CONN":           ("Billy Conn", "#444", "Billy Conn"),
+    "LESNEVICH":      ("Gus Lesnevich", "#444", "Gus Lesnevich"),
+    "MILLS":          ("Freddie Mills", "#006B3C", "Freddie Mills"),  # British
+    "MAXIM":          ("Joey Maxim", "#444", "Joey Maxim"),
+    "MOORE":          ("Archie Moore", "#8B0000", "Archie Moore"),
+    "JOHNSONHAROLD":  ("Harold Johnson", "#444", "Harold Johnson (boxer)"),
+    "PASTRANO":       ("Willie Pastrano", "#444", "Willie Pastrano"),
+    "TORRES":         ("José Torres", "#FCD116", "José Torres (boxer)"),  # PR
+    "TIGER":          ("Dick Tiger", "#008751", "Dick Tiger"),  # Nigerian
+    "FOSTER":         ("Bob Foster", "#8B0000", "Bob Foster (boxer)"),
+    "CONTEH":         ("John Conteh", "#006B3C", "John Conteh"),
+    "PARLOV":         ("Mate Parlov", "#171796", "Mate Parlov"),  # Yugoslav blue
+    "JOHNSONMARVIN":  ("Marvin Johnson", "#444", "Marvin Johnson (boxer)"),
+    "SAADMUHAMMAD":   ("Matthew Saad Muhammad", "#8B0000", "Matthew Saad Muhammad"),
+    "QAWI":           ("Dwight Muhammad Qawi", "#444", "Dwight Muhammad Qawi"),
+    # SPINKSMICHAEL — already in BOXHW dict (he also held HW lineal title later)
+    "ROYJONESJR":     ("Roy Jones Jr.", "#B8860B", "Roy Jones Jr."),
+    "TARVER":         ("Antonio Tarver", "#444", "Antonio Tarver"),
+    "JOHNSONGLEN":    ("Glen Johnson", "#444", "Glen Johnson (boxer)"),
+    "HOPKINS":        ("Bernard Hopkins", "#000", "Bernard Hopkins"),
+    "CALZAGHE":       ("Joe Calzaghe", "#D52B1E", "Joe Calzaghe"),  # Welsh red
+    "DAWSON":         ("Chad Dawson", "#444", "Chad Dawson"),
+    "STEVENSON":      ("Adonis Stevenson", "#FF0000", "Adonis Stevenson"),  # Haiti red
+    "GVOZDYK":        ("Oleksandr Gvozdyk", "#005BBB", "Oleksandr Gvozdyk"),  # Ukrainian
+    "BETERBIEV":      ("Artur Beterbiev", "#444", "Artur Beterbiev"),
+    "BIVOL":          ("Dmitry Bivol", "#444", "Dmitry Bivol"),
+}
+
 TABLES = {
-    "NBA":   (NBA, "nba"),
-    "NFL":   (NFL, "nfl"),
-    "MLB":   (MLB, "mlb"),
-    "NHL":   (NHL, "nhl"),
-    "EPL":   (EPL, None),  # ESPN soccer uses different slug shape, handled below
-    "CFB":   (CFB, "ncaa"),
-    "BOXHW": (BOXHW, None),  # No logo CDN for boxers in v1; portraits come later.
+    "NBA":    (NBA, "nba"),
+    "NFL":    (NFL, "nfl"),
+    "MLB":    (MLB, "mlb"),
+    "NHL":    (NHL, "nhl"),
+    "EPL":    (EPL, None),  # ESPN soccer uses different slug shape, handled below
+    "CFB":    (CFB, "ncaa"),
+    "BOXHW":  (BOXHW, None),  # No logo CDN for boxers; uses Wikipedia portraits.
+    "BOXLHW": (BOXLHW, None),
 }
 
 
@@ -694,7 +740,7 @@ def post(brand: dict, admin_secret: str) -> str:
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--dry-run", action="store_true", help="Print brands, don't POST")
-    p.add_argument("--leagues", default="NBA,NFL,MLB,NHL,EPL,CFB,BOXHW")
+    p.add_argument("--leagues", default="NBA,NFL,MLB,NHL,EPL,CFB,BOXHW,BOXLHW")
     args = p.parse_args()
 
     leagues = [L.strip().upper() for L in args.leagues.split(",") if L.strip()]

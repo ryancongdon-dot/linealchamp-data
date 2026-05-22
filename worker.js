@@ -229,6 +229,7 @@ const SUPPORTED_LEAGUES = [
   { key: "EPL" },
   { key: "CFB" },
   { key: "BOXHW" },
+  { key: "BOXLHW" },
 ];
 
 /**
@@ -1266,7 +1267,7 @@ const PUBLIC_HTML = `<!doctype html>
     { code: 'BOXHW',   label: 'Heavyweight',         ready: true,  group: "men's" },
     { code: 'BOXBR',   label: 'Bridgerweight',       ready: false, group: "men's" },
     { code: 'BOXCW',   label: 'Cruiserweight',       ready: false, group: "men's" },
-    { code: 'BOXLHW',  label: 'Light Heavyweight',   ready: false, group: "men's" },
+    { code: 'BOXLHW',  label: 'Light Heavyweight',   ready: true,  group: "men's" },
     { code: 'BOXSMW',  label: 'Super Middleweight',  ready: false, group: "men's" },
     { code: 'BOXMW',   label: 'Middleweight',        ready: false, group: "men's" },
     { code: 'BOXSWW',  label: 'Super Welterweight',  ready: false, group: "men's" },

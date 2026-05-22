@@ -33,7 +33,7 @@ OUTPUT_DIR = ROOT / "output"
 
 # ─── Title changes (the lineal chain itself) ──────────────────────────────────
 # (date, new_champ_code, score, from_champ_code_or_None, note)
-CHAIN: list[tuple[str, str, str, str | None, str]] = [
+HW_CHAIN: list[tuple[str, str, str, str | None, str]] = [
     ("1892-09-07", "SULLIVAN",       "SEED",  None,            "Seed: recognized champion entering Queensberry era"),
     ("1892-09-07", "CORBETT",        "KO21",  "SULLIVAN",      "First gloved heavyweight title fight"),
     ("1897-03-17", "FITZSIMMONS",    "KO14",  "CORBETT",       "Carson City, Nevada"),
@@ -94,7 +94,7 @@ CHAIN: list[tuple[str, str, str, str | None, str]] = [
 # Only fights *between* the champion's title win and their loss/retirement count.
 # Multi-reign champs (Ali, Patterson, Holyfield, Foreman, Lewis) have their
 # defenses split into multiple sub-lists by reign date range.
-DEFENSES: dict[str, list[tuple[str, str, str, str]]] = {
+HW_DEFENSES: dict[str, list[tuple[str, str, str, str]]] = {
     "SULLIVAN": [
         ("1889-07-08", "Jake Kilrain", "KO75", "Last bare-knuckle world heavyweight title fight"),
     ],
@@ -319,7 +319,7 @@ DEFENSES: dict[str, list[tuple[str, str, str, str]]] = {
 # Reign-bracketed champions whose defenses are split across multiple reigns.
 # The map below tells the emitter which DEFENSES bucket maps to which reign
 # (by the title-winning fight date in CHAIN).
-REIGN_BRACKETS: dict[tuple[str, str], str] = {
+HW_REIGN_BRACKETS: dict[tuple[str, str], str] = {
     # (champ_code, reign_start_date): bucket_key in DEFENSES
     ("PATTERSON",    "1956-11-30"): "PATTERSON_R1",
     ("PATTERSON",    "1960-06-20"): "PATTERSON_R2",
@@ -335,90 +335,231 @@ REIGN_BRACKETS: dict[tuple[str, str], str] = {
 }
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# LIGHT HEAVYWEIGHT (175 lb)
+# Created 1903. Long history — fewer dominant long reigns than HW except for
+# Archie Moore (10 years) and Bob Foster (6 years). Several extended vacancies:
+# 1905-1916 (early-era confusion), 1962-63 (Moore stripped/retired),
+# 1985-1999 (Spinks moves to HW, division splinters under alphabet titles).
+# Modern era restored when Roy Jones Jr unifies multiple major belts ~1999.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+LHW_CHAIN: list[tuple[str, str, str, str | None, str]] = [
+    ("1903-04-22", "ROOT",              "SEED",  None,           "Won inaugural light heavyweight title fight vs Kid McCoy"),
+    ("1903-07-04", "GARDNER",           "KO12",  "ROOT",         "Fort Erie, Ontario"),
+    ("1903-11-25", "FITZSIMMONSBOB",    "UD20",  "GARDNER",      "Former HW lineal champ adds LHW title; San Francisco"),
+    ("1905-12-20", "OBRIENJACK",        "RET13", "FITZSIMMONSBOB","\"Philadelphia Jack\" O'Brien"),
+    # O'Brien moved up to heavyweight; title disputed/vacant for a decade
+    ("1916-10-24", "LEVINSKY",          "UD12",  "OBRIENJACK",   "Won vacant title vs Jack Dillon"),
+    ("1920-10-12", "CARPENTIER",        "KO4",   "LEVINSKY",     "Jersey City; Frenchman's apex moment"),
+    ("1922-09-24", "SIKI",              "KO6",   "CARPENTIER",   "Paris; first African champion of any weight class"),
+    ("1923-03-17", "MCTIGUE",           "UD20",  "SIKI",         "Dublin, St. Patrick's Day"),
+    ("1925-05-30", "BERLENBACH",        "UD15",  "MCTIGUE",      "Yankee Stadium"),
+    ("1926-07-16", "DELANEY",           "UD15",  "BERLENBACH",   "Brooklyn"),
+    # Delaney vacated to fight heavyweight (1927)
+    ("1927-12-12", "LOUGHRAN",          "UD15",  "DELANEY",      "Won vacant title vs Jimmy Slattery"),
+    # Loughran vacated to fight HW (1929)
+    ("1930-06-25", "ROSENBLOOM",        "UD15",  "LOUGHRAN",     "Won vacant title vs Jimmy Slattery"),
+    ("1934-11-16", "OLIN",              "UD15",  "ROSENBLOOM",   "Madison Square Garden"),
+    ("1935-10-31", "LEWISJOHNHENRY",    "UD15",  "OLIN",         "St. Louis"),
+    # John Henry Lewis vacated to fight Joe Louis (1939); blindness ended career
+    ("1939-02-03", "BETTINA",           "TKO9",  "LEWISJOHNHENRY","Won vacant title vs Tiger Jack Fox"),
+    ("1939-07-13", "CONN",              "UD15",  "BETTINA",      "Pittsburgh"),
+    # Billy Conn vacated to fight HW (1940; lost famously to Joe Louis 1941)
+    ("1941-05-22", "LESNEVICH",         "UD15",  "CONN",         "Beat Anton Christoforidis for vacant title; New York"),
+    ("1948-07-26", "MILLS",             "UD15",  "LESNEVICH",    "London; British champion"),
+    ("1950-01-24", "MAXIM",             "KO10",  "MILLS",        "London"),
+    ("1952-12-17", "MOORE",             "UD15",  "MAXIM",        "St. Louis; begins legendary 10-year reign"),
+    # Archie Moore stripped 1962 for refusing to defend; chain restored by Johnson
+    ("1962-06-23", "JOHNSONHAROLD",     "UD15",  "MOORE",        "Beat Doug Jones; consolidates lineal claim"),
+    ("1963-06-01", "PASTRANO",          "UD15",  "JOHNSONHAROLD","Las Vegas"),
+    ("1965-03-30", "TORRES",            "TKO9",  "PASTRANO",     "Madison Square Garden"),
+    ("1966-12-16", "TIGER",             "UD15",  "TORRES",       "Nigerian-born; previously held middleweight"),
+    ("1968-05-24", "FOSTER",            "KO4",   "TIGER",        "Madison Square Garden; iconic left hook"),
+    # Bob Foster retired 1974
+    ("1974-10-01", "CONTEH",            "UD15",  "FOSTER",       "Won vacant title vs Jorge Ahumada; British"),
+    # Conteh vacated in 1977
+    ("1978-01-07", "PARLOV",            "UD15",  "CONTEH",       "Won vacant title vs Miguel Cuello"),
+    ("1978-12-02", "JOHNSONMARVIN",     "TKO10", "PARLOV",       "Marsala, Italy"),
+    ("1979-04-22", "SAADMUHAMMAD",      "TKO8",  "JOHNSONMARVIN","Indianapolis"),
+    ("1981-12-19", "QAWI",              "TKO10", "SAADMUHAMMAD", "Atlantic City"),
+    ("1983-03-18", "SPINKSMICHAEL",     "UD15",  "QAWI",         "Atlantic City; unifies WBA + WBC titles"),
+    # Spinks moves up to HW in 1985 → vacant ~14 years as the division splinters
+    ("1999-06-05", "ROYJONESJR",        "UD12",  "SPINKSMICHAEL","Beat Reggie Johnson for unified WBA/WBC/IBF; restores lineal chain"),
+    ("2004-05-15", "TARVER",            "KO2",   "ROYJONESJR",   "Las Vegas; ends Jones's pound-for-pound era"),
+    ("2004-12-18", "JOHNSONGLEN",       "UD12",  "TARVER",       "Memphis"),
+    ("2005-10-15", "TARVER",            "UD12",  "JOHNSONGLEN",  "Memphis; Tarver regains"),
+    ("2006-06-10", "HOPKINS",           "UD12",  "TARVER",       "Atlantic City; B-Hop wins at 41"),
+    ("2008-04-19", "CALZAGHE",          "SD12",  "HOPKINS",      "Las Vegas; Calzaghe's American debut"),
+    # Calzaghe retires undefeated late 2008 → vacant ~3 years
+    ("2011-05-21", "HOPKINS",           "UD12",  "CALZAGHE",     "Beat Jean Pascal for vacant title; oldest world champion ever at 46"),
+    ("2012-04-28", "DAWSON",            "UD12",  "HOPKINS",      "Atlantic City"),
+    ("2013-06-08", "STEVENSON",         "KO1",   "DAWSON",       "Montreal; 76-second KO"),
+    ("2018-12-01", "GVOZDYK",           "TKO11", "STEVENSON",    "Quebec City; Stevenson hospitalized after"),
+    ("2019-10-18", "BETERBIEV",         "TKO10", "GVOZDYK",      "Philadelphia"),
+    ("2025-02-22", "BIVOL",             "MD12",  "BETERBIEV",    "Riyadh; rematch of Oct 2024 fight"),
+]
+
+LHW_DEFENSES: dict[str, list[tuple[str, str, str, str]]] = {
+    # Selected major defenses; not exhaustive for the early era. Focused on
+    # the 10-year reigns (Moore, Foster) and the modern champions.
+    "MOORE": [
+        ("1954-06-22", "Harold Johnson",  "TKO14","New York"),
+        ("1955-06-22", "Bobo Olson",      "KO3",  "New York"),
+        ("1956-06-05", "Yolande Pompey",  "TKO10","London"),
+        ("1958-09-20", "Yvon Durelle",    "KO11", "Montreal; Durelle dropped Moore four times before the KO"),
+        ("1959-08-12", "Yvon Durelle",    "KO3",  "Montreal; rematch"),
+        ("1961-06-10", "Giulio Rinaldi",  "UD15", "New York; Moore's final lineal defense"),
+    ],
+    "FOSTER": [
+        ("1969-01-22", "Frank DePaula",   "KO1",  "Madison Square Garden"),
+        ("1969-05-24", "Andy Kendall",    "TKO4", "Springfield, MA"),
+        ("1970-04-04", "Roger Rouse",     "TKO4", "Missoula, MT"),
+        ("1970-06-27", "Mark Tessman",    "KO10", "Baltimore"),
+        ("1972-04-07", "Vicente Rondón",  "KO2",  "Miami Beach; unified WBA"),
+        ("1972-06-27", "Mike Quarry",     "KO4",  "Las Vegas"),
+        ("1972-09-26", "Chris Finnegan",  "TKO14","London"),
+        ("1973-08-21", "Pierre Fourie",   "UD15", "Albuquerque"),
+        ("1973-12-01", "Pierre Fourie",   "UD15", "Johannesburg"),
+    ],
+    "SPINKSMICHAEL": [
+        ("1983-09-18", "Oscar Rivadeneyra","TKO10","Vancouver"),
+        ("1984-02-25", "Eddie Davis",     "UD15", "Atlantic City"),
+        ("1985-06-06", "Jim MacDonald",   "TKO8", "Las Vegas; Spinks's last LHW defense before moving up"),
+    ],
+    "ROYJONESJR": [
+        ("2000-01-15", "David Telesco",   "UD12", "Madison Square Garden"),
+        ("2000-05-13", "Richard Hall",    "TKO11","Indianapolis"),
+        ("2000-09-09", "Eric Harding",    "RET10","Tampa"),
+        ("2001-02-24", "Derrick Harmon",  "TKO10","Tampa"),
+        ("2001-07-28", "Julio González",  "UD12", "Los Angeles"),
+        ("2002-02-02", "Glen Kelly",      "KO7",  "Miami"),
+        ("2003-03-01", "Clinton Woods",   "TKO6", "Portland, OR"),
+        ("2003-11-08", "Antonio Tarver",  "MD12", "Las Vegas; Tarver I"),
+    ],
+    "HOPKINS_R1": [
+        ("2007-07-21", "Winky Wright",    "UD12", "Las Vegas (catchweight 170)"),
+    ],
+    "HOPKINS_R2": [
+        ("2012-03-03", "Chad Dawson",     "TKO2", "Los Angeles (no-contest; later reversed to Dawson win — controversial)"),
+        # Note: above bout was originally NC; on appeal reversed to Dawson TKO2.
+        # The next entry (proper Dawson rematch loss) is the actual chain transfer.
+    ],
+    "BETERBIEV": [
+        ("2020-03-14", "Meng Fanlong",    "TKO8", "Quebec City"),
+        ("2022-01-22", "Marcus Browne",   "TKO9", "Montreal"),
+        ("2022-06-18", "Joe Smith Jr.",   "TKO2", "Madison Square Garden; unifies IBF+WBC+WBO"),
+        ("2023-01-28", "Anthony Yarde",   "TKO8", "London"),
+        ("2024-01-13", "Callum Smith",    "TKO7", "Quebec City"),
+        ("2024-10-12", "Dmitry Bivol",    "MD12", "Riyadh; undisputed unification, all 4 belts"),
+    ],
+    "BIVOL": [
+        # Bivol's lineal reign begins 2025-02-22 (rematch win). No defenses yet.
+    ],
+}
+
+LHW_REIGN_BRACKETS: dict[tuple[str, str], str] = {
+    ("HOPKINS", "2006-06-10"): "HOPKINS_R1",
+    ("HOPKINS", "2011-05-21"): "HOPKINS_R2",
+    # TARVER R1 (2004-05-15 → 2004-12-18) and TARVER R2 (2005-10-15 → 2006-06-10)
+    # have no defenses curated yet.
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# WEIGHT CLASS REGISTRY
+# Add new classes here; the builder iterates this dict.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+CLASSES: dict[str, dict] = {
+    "BOXHW": {
+        "label": "Heavyweight",
+        "short": "HW",
+        "chain": HW_CHAIN,
+        "defenses": HW_DEFENSES,
+        "reign_brackets": HW_REIGN_BRACKETS,
+    },
+    "BOXLHW": {
+        "label": "Light Heavyweight",
+        "short": "LHW",
+        "chain": LHW_CHAIN,
+        "defenses": LHW_DEFENSES,
+        "reign_brackets": LHW_REIGN_BRACKETS,
+    },
+}
+
+
 def norm_date(d: str) -> str:
     return f"{d}T00:00:00Z"
 
 
-def main() -> int:
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
+def build_class(code: str, short: str, chain, defenses, reign_brackets) -> dict:
+    """Run the chain → lineage + events emit for a single weight class."""
     changes: list[dict] = []
     events: list[dict] = []
-
     seq = 0
-    for ch_idx, (d, to, score, frm, _note) in enumerate(CHAIN):
+    for d, to, score, frm, _note in chain:
         seq += 1
-        gid = f"BOX-HW-{seq:03d}"
-        change: dict = {
-            "date": norm_date(d),
-            "gameId": gid,
-            "from": frm,
-            "to": to,
-        }
+        gid = f"BOX-{short}-{seq:03d}"
+        change: dict = {"date": norm_date(d), "gameId": gid, "from": frm, "to": to}
         if score and score != "SEED":
             change["score"] = score
         if score == "SEED":
             change["seed"] = True
         changes.append(change)
 
-        # Title-change event: the previous champion's loss.
+        # Title-change event from the previous champion's POV (a loss).
         if frm and score != "SEED":
             events.append({
-                "date": norm_date(d),
-                "gameId": gid,
-                "champ": frm,
-                "opponent": to,
-                "champScore": 0,
-                "oppScore": 0,
-                "result": "L",
-                "score": score,
-                "change": True,
+                "date": norm_date(d), "gameId": gid,
+                "champ": frm, "opponent": to,
+                "champScore": 0, "oppScore": 0,
+                "result": "L", "score": score, "change": True,
             })
 
-        # Now emit successful defenses *during* this reign — between this
-        # title win and the next CHAIN entry (their loss or end of data).
-        bucket = REIGN_BRACKETS.get((to, d)) or to
-        defs = DEFENSES.get(bucket, [])
-        defense_seq = 0
-        for ddate, opp_name, dscore, dnote in defs:
-            defense_seq += 1
+        bucket = reign_brackets.get((to, d)) or to
+        defs = defenses.get(bucket, [])
+        for i, (ddate, opp_name, dscore, _dnote) in enumerate(defs, start=1):
             events.append({
                 "date": norm_date(ddate),
-                "gameId": f"{gid}-D{defense_seq:02d}",
-                "champ": to,
-                "opponent": opp_name,
-                "champScore": 0,
-                "oppScore": 0,
-                "result": "W",
-                "score": dscore,
-                "change": False,
+                "gameId": f"{gid}-D{i:02d}",
+                "champ": to, "opponent": opp_name,
+                "champScore": 0, "oppScore": 0,
+                "result": "W", "score": dscore, "change": False,
             })
 
     today = date.today().isoformat()
     current = changes[-1]["to"]
     seed = changes[0]
     lineage = {
-        "league": "BOXHW",
-        "seedTeam": seed["to"],
-        "seedDate": seed["date"][:10],
-        "asOfDate": today,
-        "currentChamp": current,
+        "league": code,
+        "seedTeam": seed["to"], "seedDate": seed["date"][:10],
+        "asOfDate": today, "currentChamp": current,
         "changes": changes,
     }
-    events_payload = {
-        "league": "BOXHW",
-        "asOfDate": today,
-        "events": events,
-    }
+    events_payload = {"league": code, "asOfDate": today, "events": events}
 
-    (OUTPUT_DIR / "lineage-BOXHW.json").write_text(json.dumps(lineage, indent=2))
-    (OUTPUT_DIR / "events-BOXHW.json").write_text(json.dumps(events_payload, indent=2))
+    (OUTPUT_DIR / f"lineage-{code}.json").write_text(json.dumps(lineage, indent=2))
+    (OUTPUT_DIR / f"events-{code}.json").write_text(json.dumps(events_payload, indent=2))
 
-    defenses_total = sum(len(v) for v in DEFENSES.values())
+    defenses_total = sum(len(v) for v in defenses.values())
     print(
-        f"  BOXHW ✓ {len(changes)} reigns, {len(events)} title fights "
+        f"  {code:7} ✓ {len(changes):3} reigns, {len(events):4} title fights "
         f"({defenses_total} defenses + title changes), current champ: {current}"
     )
+    return {"code": code, "reigns": len(changes), "events": len(events), "current": current}
+
+
+def main() -> int:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    for code, cfg in CLASSES.items():
+        build_class(
+            code=code,
+            short=cfg["short"],
+            chain=cfg["chain"],
+            defenses=cfg["defenses"],
+            reign_brackets=cfg["reign_brackets"],
+        )
     return 0
 
 
