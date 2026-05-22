@@ -937,6 +937,33 @@ const PUBLIC_HTML = `<!doctype html>
   .wc-row .soon-tag { display: inline-block; margin-left: 6px; padding: 1px 6px;
                       font-size: 10px; letter-spacing: 0.06em; border-radius: 4px;
                       background: rgba(255,255,255,0.08); color: var(--text-dim); }
+  .wc-lore { margin-top: 4px; }
+  .lore-btn { width: 100%; padding: 10px 14px; font-size: 13px; cursor: pointer;
+              background: linear-gradient(135deg, rgba(184,134,11,0.15), rgba(255,215,0,0.05));
+              border: 1px solid rgba(184,134,11,0.35); border-radius: 10px;
+              color: #f0d77a; letter-spacing: 0.02em; transition: all 0.15s; }
+  .lore-btn:hover { border-color: #f0d77a; background: linear-gradient(135deg, rgba(184,134,11,0.25), rgba(255,215,0,0.1)); }
+  .lore-intro { margin-bottom: 22px; font-size: 14px; line-height: 1.6; color: var(--text); }
+  .lore-intro p { margin: 0 0 10px; }
+  .lore-list { display: flex; flex-direction: column; gap: 22px; }
+  .lore-moment { display: grid; grid-template-columns: auto 1fr; gap: 16px;
+                 padding: 14px; border: 1px solid var(--border); border-radius: 10px;
+                 background: rgba(255,255,255,0.02); }
+  .lore-photos { display: flex; flex-direction: column; gap: 6px; }
+  .lore-portrait { width: 64px; height: 64px; border-radius: 8px; object-fit: cover;
+                   background: #2a2f3d; }
+  .lore-portrait.fallback { display: flex; align-items: center; justify-content: center;
+                            font-size: 11px; color: var(--text-dim); padding: 4px;
+                            text-align: center; }
+  .lore-text { min-width: 0; }
+  .lore-year { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+               color: #f0d77a; margin-bottom: 2px; }
+  .lore-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+  .lore-text p { margin: 0; line-height: 1.55; color: var(--text-dim); }
+  @media (max-width: 600px) {
+    .lore-moment { grid-template-columns: 1fr; }
+    .lore-photos { flex-direction: row; }
+  }
   .tabs button {
     padding: 8px 14px; border: 1px solid var(--border); background: var(--bg-elev);
     color: var(--text-dim); border-radius: 999px; cursor: pointer; font-weight: 600;
@@ -1315,7 +1342,10 @@ const PUBLIC_HTML = `<!doctype html>
         '<div class="wc-group"><div class="wc-heading">Men’s divisions</div>'
         + '<div class="wc-row">' + pills("men's") + '</div></div>'
         + '<div class="wc-group"><div class="wc-heading">Women’s divisions</div>'
-        + '<div class="wc-row">' + pills("women's") + '</div></div>';
+        + '<div class="wc-row">' + pills("women's") + '</div></div>'
+        + '<div class="wc-lore">'
+        + '<button id="boxingLoreBtn" class="lore-btn">📜 The Lore of the Lineal Championship</button>'
+        + '</div>';
     }
     el('tabs').innerHTML = '<div class="tabs-main">' + mainHtml + '</div>'
       + (subHtml ? '<div class="tabs-sub">' + subHtml + '</div>' : '');
@@ -1334,6 +1364,131 @@ const PUBLIC_HTML = `<!doctype html>
         renderTabs(); EVENTS = null; load();
       });
     });
+    var loreBtn = el('boxingLoreBtn');
+    if (loreBtn) loreBtn.addEventListener('click', openBoxingLore);
+  }
+
+  // Famous moments in the heavyweight lineal chain. Champion codes link to
+  // entries in BRAND so their portraits render without extra network calls.
+  var LORE_MOMENTS = [
+    {
+      year: 1882, date: 'Feb 7, 1882', title: 'The first king',
+      who: ['SULLIVAN'],
+      text: 'John L. Sullivan defeats Paddy Ryan under London Prize Ring rules. He is the last great bare-knuckle champion and the first heavyweight whose reign carries forward into the modern, gloved era — the seed of every lineal heavyweight title that follows.',
+    },
+    {
+      year: 1889, date: 'Jul 8, 1889', title: 'The end of bare-knuckle',
+      who: ['SULLIVAN'],
+      text: 'Sullivan beats Jake Kilrain in the 75th round under a Mississippi sun. It is the last bare-knuckle world heavyweight title fight. From here on, the championship is contested with gloves under the Marquess of Queensberry Rules.',
+    },
+    {
+      year: 1892, date: 'Sep 7, 1892', title: 'A new era',
+      who: ['CORBETT', 'SULLIVAN'],
+      text: '"Gentleman Jim" Corbett knocks out Sullivan in the 21st round in New Orleans — the first gloved world heavyweight title fight. A scientific boxer dethrones a slugger, and the modern heavyweight era begins.',
+    },
+    {
+      year: 1908, date: 'Dec 26, 1908', title: 'The world changes',
+      who: ['JOHNSON', 'BURNS'],
+      text: 'Jack Johnson chases Tommy Burns to Sydney, Australia, and stops him in the 14th to become the first Black world heavyweight champion. The fight is so racially charged that promoters cut the film just before the knockout.',
+    },
+    {
+      year: 1910, date: 'Jul 4, 1910', title: 'The Great White Hope',
+      who: ['JOHNSON'],
+      text: 'James J. Jeffries comes out of retirement to "regain the title for the white race." Johnson dismantles him in 15 rounds in Reno. The aftermath sets off race riots across the United States.',
+    },
+    {
+      year: 1921, date: 'Jul 2, 1921', title: 'The first million-dollar gate',
+      who: ['DEMPSEY'],
+      text: 'Jack Dempsey vs Georges Carpentier in Jersey City draws boxing\'s first $1M+ live gate. Radio broadcasts the fight for the first time. The Roaring Twenties have a heavyweight champion.',
+    },
+    {
+      year: 1938, date: 'Jun 22, 1938', title: 'A nation\'s revenge',
+      who: ['JOELOUIS', 'SCHMELING'],
+      text: 'Joe Louis avenges his 1936 loss to Max Schmeling — the Nazi regime\'s symbol — in 124 seconds at Yankee Stadium. The fight is broadcast in four languages to a global audience. Louis is treated as an American hero overnight.',
+    },
+    {
+      year: 1956, date: 'Apr 27, 1956', title: 'Marciano walks away',
+      who: ['MARCIANO'],
+      text: 'Rocky Marciano retires at 49-0 — the only heavyweight champion ever to leave undefeated. For strict lineal purists, this breaks the chain forever. The Ring magazine restarts it later that year with Floyd Patterson.',
+    },
+    {
+      year: 1964, date: 'Feb 25, 1964', title: '"Shook up the world"',
+      who: ['MUHAMMADALI', 'LISTON'],
+      text: '22-year-old Cassius Clay, a 7-1 underdog, retires Sonny Liston on his stool after the 6th round in Miami Beach. The next morning, he announces his conversion to Islam and his new name: Muhammad Ali.',
+    },
+    {
+      year: 1971, date: 'Mar 8, 1971', title: 'Fight of the Century',
+      who: ['FRAZIER', 'MUHAMMADALI'],
+      text: 'Two undefeated heavyweight champions — Ali returning from his draft-related exile, Frazier holding the title in his absence — meet at Madison Square Garden. Frazier drops Ali in the 15th. He hands Ali his first professional loss and settles who is the lineal champion.',
+    },
+    {
+      year: 1974, date: 'Oct 30, 1974', title: 'Rumble in the Jungle',
+      who: ['MUHAMMADALI', 'FOREMAN'],
+      text: 'Ali, 32 and a heavy underdog, reclaims the lineal title from George Foreman in Kinshasa, Zaire, at 4am local time. He absorbs everything Foreman has for seven rounds on the ropes, then knocks him out in the 8th. The "rope-a-dope" is born.',
+    },
+    {
+      year: 1975, date: 'Oct 1, 1975', title: 'Thrilla in Manila',
+      who: ['MUHAMMADALI', 'FRAZIER'],
+      text: 'Ali vs Frazier III: 14 rounds of brutal trench warfare in 100-degree heat. Frazier\'s corner stops the fight before the 15th. Both fighters say later that they nearly died in the ring. Neither is the same again.',
+    },
+    {
+      year: 1990, date: 'Feb 11, 1990', title: 'The Tokyo Upset',
+      who: ['DOUGLAS', 'TYSON'],
+      text: '42-1 underdog James "Buster" Douglas knocks out the seemingly invincible Mike Tyson in the 10th round. Tyson\'s trainers had no ice for the swelling under his eye between rounds. Considered by many the biggest upset in sports history.',
+    },
+    {
+      year: 1997, date: 'Jun 28, 1997', title: 'The Bite Fight',
+      who: ['HOLYFIELD', 'TYSON'],
+      text: 'Tyson is disqualified for biting both of Evander Holyfield\'s ears. Holyfield retains his WBA crown and, by extension, keeps his place in the lineal conversation. Tyson never regains the stature he had before this night.',
+    },
+    {
+      year: 2011, date: 'Jul 2, 2011', title: 'A unifier at last',
+      who: ['KLITSCHKOWLAD'],
+      text: 'Seven years after Lennox Lewis retires undefeated, the heavyweight division finally has a consensus champion again: Wladimir Klitschko beats David Haye to hold WBA, WBO, and IBF simultaneously. His reign will run 9.5 years and include 18 successful defenses.',
+    },
+    {
+      year: 2015, date: 'Nov 28, 2015', title: 'The Gypsy King',
+      who: ['FURY', 'KLITSCHKOWLAD'],
+      text: 'Tyson Fury, 6\'9", outpoints Wladimir Klitschko in Düsseldorf, ending Klitschko\'s decade at the top. Within a year, Fury vacates the belts during a public battle with mental illness and addiction. He doesn\'t lose in the ring — the lineal title goes with him.',
+    },
+    {
+      year: 2020, date: 'Feb 22, 2020', title: 'The comeback',
+      who: ['FURY'],
+      text: 'After three years away from boxing, Fury stops Deontay Wilder in the 7th round in Las Vegas. The hiatus is over. The lineal heavyweight champion is back where he never officially left.',
+    },
+    {
+      year: 2024, date: 'May 18, 2024', title: 'Undisputed',
+      who: ['USYK', 'FURY'],
+      text: 'Oleksandr Usyk edges Fury by split decision in Riyadh to become the first undisputed heavyweight champion of the four-belt era — holding WBA, WBC, IBF, and WBO simultaneously, a unification that hasn\'t happened in 24 years.',
+    },
+  ];
+
+  function openBoxingLore(){
+    var moments = LORE_MOMENTS.slice().reverse(); // newest first
+    var body =
+      '<div class="lore-intro">'
+      + '<p><strong>"The man who beat the man."</strong> The phrase predates this website by a century — it\'s how boxing historians talked about a championship that wasn\'t handed out by a sanctioning body but earned in the ring against the previous holder.</p>'
+      + '<p>When the alphabet titles (WBA, WBC, IBF, WBO) splintered the official championship across the 1960s, 70s, and 80s, the <em>lineal</em> title became the consensus belt — the one whose holder could draw an unbroken line back to John L. Sullivan in 1882. This is that line. Every fight that mattered. Every name that mattered.</p>'
+      + '</div>'
+      + '<div class="lore-list">'
+      + moments.map(function(m){
+          var portraits = m.who.map(function(code){
+            var b = brandFor(code);
+            return b.logo
+              ? '<img class="lore-portrait" src="'+b.logo+'" alt="'+escapeHTML(b.name)+'" title="'+escapeHTML(b.name)+'"/>'
+              : '<div class="lore-portrait fallback">'+escapeHTML(b.name.split(' ').slice(-1)[0])+'</div>';
+          }).join('');
+          return '<div class="lore-moment">'
+            + '<div class="lore-photos">'+portraits+'</div>'
+            + '<div class="lore-text">'
+            +   '<div class="lore-year">'+escapeHTML(m.date)+'</div>'
+            +   '<div class="lore-title">'+escapeHTML(m.title)+'</div>'
+            +   '<p>'+escapeHTML(m.text)+'</p>'
+            + '</div>'
+            + '</div>';
+        }).join('')
+      + '</div>';
+    showModal('The Lore of the Lineal Championship', 'Boxing 1882 → present', body);
   }
 
   function showComingSoon(wc){
