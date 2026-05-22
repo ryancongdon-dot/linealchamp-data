@@ -1511,12 +1511,42 @@ const PUBLIC_HTML = `<!doctype html>
   function daysBetween(a, b){
     return Math.max(0, Math.floor((new Date(b) - new Date(a)) / (24*3600*1000)));
   }
+  // Fallback boxer portraits — for fighters whose Wikipedia article lacks the
+  // structured pageimage tag (so the brand-seed Action API couldn't auto-find
+  // a thumbnail). Hot-links via Wikipedia's Special:FilePath redirect, which
+  // resolves to the canonical CDN URL.
+  function wf(filename, width){ return 'https://en.wikipedia.org/wiki/Special:FilePath/' + encodeURIComponent(filename) + '?width=' + (width || 400); }
+  var STATIC_BRAND_PORTRAITS = {
+    MUHAMMADALI:    wf('Muhammad Ali NYWTS.jpg'),
+    LISTON:         wf('Sonny Liston NYWTS.jpg'),
+    JOELOUIS:       wf('Joe Louis - publicity.JPG'),
+    MARCIANO:       wf('Rocky Marciano - 1953.jpg'),
+    FOREMAN:        wf('George Foreman 2018.jpg'),
+    FRAZIER:        wf('Joe Frazier - 1971.jpg'),
+    HOLYFIELD:      wf('Evander Holyfield at the 2010 Tribeca Film Festival.jpg'),
+    HOLMES:         wf('Larry Holmes 2014.jpg'),
+    LEWIS:          wf('Lennox Lewis 2007.jpg'),
+    KLITSCHKOWLAD:  wf('Wladimir Klitschko 2014.jpg'),
+    FURY:           wf('Tyson Fury LA 2018.jpg'),
+    JOHANSSON:      wf('Ingemar Johansson 1959.jpg'),
+    PATTERSON:      wf('Floyd Patterson 1962.jpg'),
+    JOHNSON:        wf('Jack Johnson1.jpg'),
+    JEFFRIES:       wf('James J Jeffries.jpg'),
+    FITZSIMMONS:    wf('Bob Fitzsimmons.jpg'),
+    BURNS:          wf('Tommy Burns boxer.jpg'),
+    SCHMELING:      wf('Bundesarchiv Bild 102-10460, Max Schmeling.jpg'),
+    SHARKEY:        wf('Jack Sharkey 1932.jpg'),
+    BAER:           wf('Max Baer.jpg'),
+    RAHMAN:         wf('Hasim Rahman.jpg'),
+    MOORER:         wf('Michael Moorer.jpg'),
+  };
+
   function brandFor(code){
     var b = BRAND[code];
     return {
       name: (b && b.name) || code,
       color: (b && b.color) || colorFor(code || ''),
-      logo: (b && b.logo) || '',
+      logo: (b && b.logo) || STATIC_BRAND_PORTRAITS[code] || '',
     };
   }
   function nameSpan(code){
