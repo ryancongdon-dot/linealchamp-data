@@ -1233,8 +1233,8 @@ const PUBLIC_HTML = `<!doctype html>
   var LEAGUES = ['NBA','NFL','MLB','NHL','EPL','CFB','BOX'];
   var LEAGUE_LABELS = { BOX: 'Boxing' };
 
-  // Boxing weight-class registry. `ready: true` means we have lineage data
-  // in KV; `false` means "Coming soon" placeholder.
+  // Boxing weight-class registry. ready:true means we have lineage data
+  // in KV; ready:false renders a "Coming soon" placeholder.
   var WEIGHT_CLASSES = [
     { code: 'BOXHW',   label: 'Heavyweight',         ready: true,  group: "men's" },
     { code: 'BOXBR',   label: 'Bridgerweight',       ready: false, group: "men's" },
