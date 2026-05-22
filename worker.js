@@ -923,7 +923,20 @@ const PUBLIC_HTML = `<!doctype html>
   body { font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; }
   .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; }
   h1 { margin: 0 0 16px; font-size: 28px; letter-spacing: -0.02em; }
-  .tabs { display: flex; gap: 6px; margin-bottom: 20px; flex-wrap: wrap; }
+  .tabs { display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; }
+  .tabs-main { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tabs-sub  { display: flex; flex-direction: column; gap: 10px;
+               padding: 14px 14px 12px; background: rgba(255,255,255,0.025);
+               border: 1px solid var(--border); border-radius: 14px; }
+  .wc-group { display: flex; flex-direction: column; gap: 6px; }
+  .wc-heading { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+                color: var(--text-dim); }
+  .wc-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .wc-row button { position: relative; }
+  .wc-row button.soon { opacity: 0.55; }
+  .wc-row .soon-tag { display: inline-block; margin-left: 6px; padding: 1px 6px;
+                      font-size: 10px; letter-spacing: 0.06em; border-radius: 4px;
+                      background: rgba(255,255,255,0.08); color: var(--text-dim); }
   .tabs button {
     padding: 8px 14px; border: 1px solid var(--border); background: var(--bg-elev);
     color: var(--text-dim); border-radius: 999px; cursor: pointer; font-weight: 600;
@@ -1217,11 +1230,56 @@ const PUBLIC_HTML = `<!doctype html>
   var PALETTE = ['#4f6cf7','#2dd4bf','#fb923c','#f472b6','#a78bfa','#facc15','#34d399'];
   function colorFor(s){ var h=0; for(var i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0; return PALETTE[Math.abs(h)%PALETTE.length]; }
 
-  var LEAGUES = ['NBA','NFL','MLB','NHL','EPL','CFB','BOXHW'];
-  var LEAGUE_LABELS = { BOXHW: 'Boxing (HW)' };
+  var LEAGUES = ['NBA','NFL','MLB','NHL','EPL','CFB','BOX'];
+  var LEAGUE_LABELS = { BOX: 'Boxing' };
+
+  // Boxing weight-class registry. `ready: true` means we have lineage data
+  // in KV; `false` means "Coming soon" placeholder.
+  var WEIGHT_CLASSES = [
+    { code: 'BOXHW',   label: 'Heavyweight',         ready: true,  group: "men's" },
+    { code: 'BOXBR',   label: 'Bridgerweight',       ready: false, group: "men's" },
+    { code: 'BOXCW',   label: 'Cruiserweight',       ready: false, group: "men's" },
+    { code: 'BOXLHW',  label: 'Light Heavyweight',   ready: false, group: "men's" },
+    { code: 'BOXSMW',  label: 'Super Middleweight',  ready: false, group: "men's" },
+    { code: 'BOXMW',   label: 'Middleweight',        ready: false, group: "men's" },
+    { code: 'BOXSWW',  label: 'Super Welterweight',  ready: false, group: "men's" },
+    { code: 'BOXWW',   label: 'Welterweight',        ready: false, group: "men's" },
+    { code: 'BOXSLW',  label: 'Super Lightweight',   ready: false, group: "men's" },
+    { code: 'BOXLW',   label: 'Lightweight',         ready: false, group: "men's" },
+    { code: 'BOXSFW',  label: 'Super Featherweight', ready: false, group: "men's" },
+    { code: 'BOXFW',   label: 'Featherweight',       ready: false, group: "men's" },
+    { code: 'BOXSBW',  label: 'Super Bantamweight',  ready: false, group: "men's" },
+    { code: 'BOXBW',   label: 'Bantamweight',        ready: false, group: "men's" },
+    { code: 'BOXSFLW', label: 'Super Flyweight',     ready: false, group: "men's" },
+    { code: 'BOXFLW',  label: 'Flyweight',           ready: false, group: "men's" },
+    { code: 'BOXLFLW', label: 'Light Flyweight',     ready: false, group: "men's" },
+    { code: 'BOXMSW',  label: 'Minimumweight',       ready: false, group: "men's" },
+    { code: 'BOXWHW',  label: 'Heavyweight',         ready: false, group: "women's" },
+    { code: 'BOXWLHW', label: 'Light Heavyweight',   ready: false, group: "women's" },
+    { code: 'BOXWMW',  label: 'Middleweight',        ready: false, group: "women's" },
+    { code: 'BOXWLMW', label: 'Light Middleweight',  ready: false, group: "women's" },
+    { code: 'BOXWWW',  label: 'Welterweight',        ready: false, group: "women's" },
+    { code: 'BOXWLW',  label: 'Lightweight',         ready: false, group: "women's" },
+    { code: 'BOXWFW',  label: 'Featherweight',       ready: false, group: "women's" },
+    { code: 'BOXWFLW', label: 'Flyweight',           ready: false, group: "women's" },
+  ];
+  var WC_BY_CODE = {}; WEIGHT_CLASSES.forEach(function(w){ WC_BY_CODE[w.code] = w; });
+  function isBoxingCode(c){ return !!WC_BY_CODE[c]; }
+  function isBoxingActive(){ return league === 'BOX' || isBoxingCode(league); }
+  function activeWeightClass(){
+    if (isBoxingCode(league)) return league;
+    return 'BOXHW'; // default when "BOX" hub is selected
+  }
+
   var SHOW_LANDING = !new URLSearchParams(location.search).get('l');
   var league = (new URLSearchParams(location.search).get('l') || 'NBA').toUpperCase();
-  if (LEAGUES.indexOf(league) < 0) league = 'NBA';
+  // Map old BOXHW-direct links to the new "BOX" hub view defaulting to HW.
+  if (league === 'BOX') league = 'BOXHW';
+  var KNOWN = LEAGUES.concat(WEIGHT_CLASSES.map(function(w){ return w.code; }));
+  if (KNOWN.indexOf(league) < 0) league = 'NBA';
+  // Direct link to a not-yet-curated weight class → fall back to HW so the
+  // tracker still loads. The sub-tab row will surface "Coming soon" hints.
+  if (WC_BY_CODE[league] && !WC_BY_CODE[league].ready) league = 'BOXHW';
 
   var BRAND = {}, DATA = null, EVENTS = null;
 
@@ -1229,17 +1287,65 @@ const PUBLIC_HTML = `<!doctype html>
   function pct(){ return Math.random(); }
 
   function renderTabs(){
-    el('tabs').innerHTML = LEAGUES.map(function(L){
+    // Main row: 6 sports + a single "Boxing" pill.
+    var mainHtml = LEAGUES.map(function(L){
       var label = LEAGUE_LABELS[L] || L;
-      return '<button data-l="'+L+'" '+(L===league?'class="active"':'')+'>'+label+'</button>';
+      var isActive = (L === 'BOX') ? isBoxingActive() : (L === league);
+      // Boxing's click target is BOXHW (default weight class).
+      var dataL = (L === 'BOX') ? 'BOXHW' : L;
+      return '<button data-l="'+dataL+'" '+(isActive?'class="active"':'')+'>'+label+'</button>';
     }).join('');
-    Array.prototype.forEach.call(el('tabs').children, function(b){
+    // Weight-class sub-row (boxing-only).
+    var subHtml = '';
+    if (isBoxingActive()) {
+      var active = activeWeightClass();
+      function pills(group){
+        return WEIGHT_CLASSES
+          .filter(function(w){ return w.group === group; })
+          .map(function(w){
+            var cls = [];
+            if (w.code === active) cls.push('active');
+            if (!w.ready) cls.push('soon');
+            return '<button class="'+cls.join(' ')+'" data-l="'+w.code+'">'+w.label
+              + (w.ready ? '' : '<span class="soon-tag">soon</span>')
+              + '</button>';
+          }).join('');
+      }
+      subHtml =
+        '<div class="wc-group"><div class="wc-heading">Men’s divisions</div>'
+        + '<div class="wc-row">' + pills("men's") + '</div></div>'
+        + '<div class="wc-group"><div class="wc-heading">Women’s divisions</div>'
+        + '<div class="wc-row">' + pills("women's") + '</div></div>';
+    }
+    el('tabs').innerHTML = '<div class="tabs-main">' + mainHtml + '</div>'
+      + (subHtml ? '<div class="tabs-sub">' + subHtml + '</div>' : '');
+
+    // Wire clicks for both rows.
+    el('tabs').querySelectorAll('button[data-l]').forEach(function(b){
       b.addEventListener('click', function(){
-        league = b.getAttribute('data-l');
+        var L = b.getAttribute('data-l');
+        var wc = WC_BY_CODE[L];
+        if (wc && !wc.ready) {
+          showComingSoon(wc);
+          return;
+        }
+        league = L;
         history.replaceState(null, '', '?l='+league);
         renderTabs(); EVENTS = null; load();
       });
     });
+  }
+
+  function showComingSoon(wc){
+    var html =
+      '<div style="text-align:center;padding:18px 0">'
+      + '<div style="font-size:1.05em;margin-bottom:6px">Lineage for '
+      + escapeHTML((wc.group === "women's" ? "Women's " : '') + wc.label)
+      + ' is being curated.</div>'
+      + '<div style="color:var(--text-dim);font-size:0.92em">'
+      + 'Boxing has 25+ weight classes spanning 130+ years. We started with the Heavyweight chain (Sullivan → Usyk) and are working outward. Check back soon.'
+      + '</div></div>';
+    showModal('Coming soon', '', html);
   }
 
   function fmtDate(s){
@@ -1579,7 +1685,10 @@ const PUBLIC_HTML = `<!doctype html>
   function renderLandingPicks(){
     var html = LEAGUES.map(function(L){
       var label = LEAGUE_LABELS[L] || L;
-      return '<a href="?l='+L+'">'+label+'</a>';
+      // Boxing's landing link goes straight to the Heavyweight tracker; the
+      // tracker then exposes all weight classes via the sub-tab row.
+      var href = (L === 'BOX') ? '?l=BOXHW' : '?l=' + L;
+      return '<a href="'+href+'">'+label+'</a>';
     }).join('');
     var a = el('landPick'), b = el('landPick2');
     if (a) a.innerHTML = html;
