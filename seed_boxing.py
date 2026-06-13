@@ -34,7 +34,7 @@ OUTPUT_DIR = ROOT / "output"
 # ─── Title changes (the lineal chain itself) ──────────────────────────────────
 # (date, new_champ_code, score, from_champ_code_or_None, note)
 HW_CHAIN: list[tuple[str, str, str, str | None, str]] = [
-    ("1892-09-07", "SULLIVAN",       "SEED",  None,            "Seed: recognized champion entering Queensberry era"),
+    ("1882-02-07", "SULLIVAN",       "SEED",  None,            "Seed: beat Paddy Ryan to become recognized champion; reign carries into the gloved era"),
     ("1892-09-07", "CORBETT",        "KO21",  "SULLIVAN",      "First gloved heavyweight title fight"),
     ("1897-03-17", "FITZSIMMONS",    "KO14",  "CORBETT",       "Carson City, Nevada"),
     ("1899-06-09", "JEFFRIES",       "KO11",  "FITZSIMMONS",   "Coney Island"),
