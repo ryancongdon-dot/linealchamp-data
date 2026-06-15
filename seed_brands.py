@@ -683,7 +683,7 @@ def wiki_portrait(title: str) -> Optional[str]:
 def logo_for(sport: str, league: str, slug) -> Optional[str]:
     if not slug:
         return None
-    if league == "BOXHW":
+    if league.startswith("BOX"):
         # slug is a Wikipedia page title for boxers; resolve to portrait URL.
         return wiki_portrait(slug)
     if league == "EPL":
