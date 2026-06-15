@@ -42,13 +42,15 @@ import requests
 
 from lineage import Game, norm
 
-# BDL renames historical franchises to their modern abbreviations (1947 PHW
-# games are stored under GSW). Rather than guess what BDL calls the BAA's
-# inaugural champ, let the first game's winner seed the lineage.
-SEED_TEAM = None  # first-game-winner; with SEED_DATE = 1948 BAA Finals Game 6
-SEED_DATE = "1948-04-21"  # BDL data starts Nov 1947 so 1947 BAA Finals isn't available;
-                          # 1948 Finals Game 6 (Baltimore Bullets clinched) is the first
-                          # championship in our records.
+# BDL renames historical franchises to their modern abbreviations: the 1947
+# Philadelphia Warriors are stored under GSW (Golden State Warriors), the
+# franchise's modern code. We can therefore seed with the true first BAA
+# champion (Warriors won the 1947 BAA Finals 4-1 over Chicago Stags, clinching
+# in Game 5 on April 22) even though BDL's game data doesn't start until
+# November 1947 — the seed is synthetic, and the first BDL games the Warriors
+# play in the 1947-48 season either keep or transfer the belt from there.
+SEED_TEAM = "GSW"
+SEED_DATE = "1947-04-22"  # 1947 BAA Finals Game 5: Philadelphia Warriors clinch the first BAA championship
 
 BDL_URL = "https://api.balldontlie.io/v1/games"
 RATE_DELAY_SEC = 0.4
