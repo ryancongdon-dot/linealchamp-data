@@ -198,6 +198,17 @@ def _games_from_team_page(html: str, team_code: str, season_year: int) -> list[G
         if date_i is None or opp_i is None or result_i is None:
             continue
 
+        # Skip preseason tables wholesale. Preseason always starts in
+        # July/August, so if the first row's date is in those months, the
+        # entire table is preseason — including any Week 4 game that
+        # happens to land on Sept 1-3.
+        first_cells = rows[1].find_all(["th", "td"])
+        if date_i < len(first_cells):
+            first_date = _parse_date(
+                first_cells[date_i].get_text(" ", strip=True), season_year)
+            if first_date and int(first_date[5:7]) in (7, 8):
+                continue
+
         for row in rows[1:]:
             cells = row.find_all(["th", "td"])
             if len(cells) <= max(date_i, opp_i, result_i):
@@ -291,11 +302,13 @@ def fetch_season(year: int, cache_dir: Path) -> list[Game]:
         team_games = _games_from_team_page(tr.text, code, year)
         raw_games.extend(team_games)
 
-    # Each game appears on two team pages — dedupe by (date, home, away).
-    seen: set[tuple[str, str, str]] = set()
+    # Each game appears on two team pages — dedupe by (date, {teams}).
+    # Use a frozenset of the two team codes so neutral-site games (Super Bowl,
+    # international series) dedupe even when both pages list themselves as home.
+    seen: set[tuple[str, frozenset[str]]] = set()
     dedup: list[Game] = []
     for g in raw_games:
-        key = (g.date[:10], g.home_id, g.away_id)
+        key = (g.date[:10], frozenset({g.home_id, g.away_id}))
         if key in seen:
             continue
         seen.add(key)
