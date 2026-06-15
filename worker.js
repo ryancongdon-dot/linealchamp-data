@@ -1540,6 +1540,17 @@ const PUBLIC_HTML = `<!doctype html>
     SCHMELING:      'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Bundesarchiv_Bild_102-09348%2C_Max_Schmeling.jpg/500px-Bundesarchiv_Bild_102-09348%2C_Max_Schmeling.jpg',
     SHARKEY:        'https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/Jack_Sharkey_01_%28cropped%29.tif/lossy-page1-1280px-Jack_Sharkey_01_%28cropped%29.tif.jpg',
     BURNS:          'https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/Tommy_Burns_1912.jpg/500px-Tommy_Burns_1912.jpg',
+    MOORER:         'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Michael_Moorer_in_2009.jpg/500px-Michael_Moorer_in_2009.jpg',
+    // BOXLHW portraits verified via REST media-list endpoint
+    MOORE:          'https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/Archie_Moore_1955.jpg/500px-Archie_Moore_1955.jpg',
+    JOHNSONHAROLD:  'https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/Harold_Johnson_1954b.jpg/330px-Harold_Johnson_1954b.jpg',
+    TORRES:         'https://upload.wikimedia.org/wikipedia/en/c/ce/Jose_Torres1.jpg',
+    TIGER:          'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Dick_Tiger_vs_Nino_Benvenuti_1969.jpg/330px-Dick_Tiger_vs_Nino_Benvenuti_1969.jpg',
+    FOSTER:         'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Bob_Foster_1972.jpg/500px-Bob_Foster_1972.jpg',
+    CONTEH:         'https://upload.wikimedia.org/wikipedia/commons/thumb/d/da/John_Conteh_c1973.jpg/330px-John_Conteh_c1973.jpg',
+    PARLOV:         'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Mate_Parlov_1972.jpg/500px-Mate_Parlov_1972.jpg',
+    JOHNSONMARVIN:  'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Marvin_Johnson_in_KO_Magazine.jpg/500px-Marvin_Johnson_in_KO_Magazine.jpg',
+    SAADMUHAMMAD:   'https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Matthew_Saad_Muhammad_by_Bill_Apter.jpg/500px-Matthew_Saad_Muhammad_by_Bill_Apter.jpg',
   };
 
   function brandFor(code){
