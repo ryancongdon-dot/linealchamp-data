@@ -135,6 +135,10 @@ NFL = {
     "OAK": ("Oakland Raiders", "#444", None),
     "SD":  ("San Diego Chargers", "#444", None),
     "STL": ("St. Louis Rams", "#444", None),
+    # Defunct 1933-era NFL franchises (real NFL teams that folded; distinct
+    # from MLB teams of the same name that existed alongside them).
+    "BKND": ("Brooklyn Dodgers (NFL)", "#1f3a93", None),
+    "CINR": ("Cincinnati Reds (NFL)", "#C8102E", None),
 }
 
 # ─── MLB ────────────────────────────────────────────────────────────────────
