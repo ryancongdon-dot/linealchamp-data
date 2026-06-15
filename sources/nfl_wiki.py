@@ -281,7 +281,8 @@ def fetch_season(year: int, cache_dir: Path) -> list[Game]:
         return []
 
     raw_games: list[Game] = []
-    for code, url in team_pages:
+    for i, (code, url) in enumerate(team_pages, start=1):
+        print(f"    [{i:>2}/{len(team_pages)}] fetching {code} ...", flush=True)
         time.sleep(RATE_DELAY_SEC)
         tr = requests.get(url, headers={"User-Agent": WIKI_UA}, timeout=30)
         if tr.status_code != 200:
