@@ -1,9 +1,24 @@
 """
-NFL source — balldontlie /nfl/v1/games.
+NFL source — historical Wikipedia scrape (1933–2001) + balldontlie (2002+).
 
-We originally tried pro-football-reference scraping for full 1920+ history, but
-PFR's WAF blocks all non-residential clients (including Mozilla UAs) with a
-hard 403, so we fall back to BDL which only covers 2002+. Lineage starts there.
+History:
+    pro-football-reference's WAF blocks all non-residential clients, so we
+    can't use it. Wikipedia season pages have stable URLs, no WAF, and tables
+    going back to 1933 — see sources/nfl_wiki.py.
+
+Strategy:
+    The fetch_all_games(start, end, cache_dir) entry point pulls Wikipedia
+    data for seasons in [start_year, 2001] and BDL data for [2002, end_year],
+    then concatenates them. Both sources emit Game with home_id / away_id
+    normalized to the same modern team codes (ARI, ATL, ..., WAS), so the
+    lineage walker sees one continuous chain.
+
+Seed:
+    The 1933 NFL Championship Game (Chicago Bears 23-21 over NY Giants) is
+    the first formal NFL championship. Pre-1933 the league title was awarded
+    by standings only, so we start the chain at the first true championship
+    game, consistent with the "championship-only seed" rule chosen for the
+    other major sports.
 
 BDL NFL game shape (matches NBA shape):
     {
@@ -29,9 +44,14 @@ from typing import Optional
 import requests
 
 from lineage import Game, norm
+from sources import nfl_wiki
 
-SEED_TEAM = None  # first-game-winner; with SEED_DATE = Super Bowl XXXVII
-SEED_DATE = "2003-01-26"  # SB XXXVII (Tampa Bay Buccaneers); first championship in BDL data
+SEED_TEAM = "CHI"           # 1933 NFL Champion: Chicago Bears
+SEED_DATE = "1933-12-17"    # 1933 NFL Championship Game: Bears 23-21 Giants
+
+# Years for which we use Wikipedia (BDL doesn't have them).
+WIKI_SEASON_START = 1933
+WIKI_SEASON_END = 2001      # BDL takes over from 2002.
 
 BDL_URL = "https://api.balldontlie.io/nfl/v1/games"
 RATE_DELAY_SEC = 0.5
@@ -114,10 +134,22 @@ def _away_score(it: dict):
 
 
 def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
-    y0 = max(2002, int(start[:4]))
-    y1 = int(end[:4])
+    start_year = int(start[:4])
+    end_year = int(end[:4])
     out: list[Game] = []
-    for season in range(y0, y1 + 1):
+
+    # ── Wikipedia: 1933 .. 2001 (cached per-season). ────────────────────────
+    wiki_start = max(start_year, WIKI_SEASON_START)
+    wiki_end = min(end_year, WIKI_SEASON_END)
+    wiki_cache = cache_dir / "wiki"
+    if wiki_start <= wiki_end:
+        for g in nfl_wiki.fetch_seasons(wiki_start, wiki_end, wiki_cache):
+            if start <= g.date[:10] <= end:
+                out.append(g)
+
+    # ── BDL: 2002 .. end_year. ──────────────────────────────────────────────
+    bdl_y0 = max(2002, start_year)
+    for season in range(bdl_y0, end_year + 1):
         try:
             items = _fetch_season(season, cache_dir)
         except Exception as exc:
