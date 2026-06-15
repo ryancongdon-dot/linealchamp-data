@@ -132,7 +132,11 @@ export default {
         guardAdmin(request, env, cors);
         const league = leagueFrom(url); guardLeague(league);
         const lineage = await readMergedLineage(league, env);
-        const lastUpdate = await env.KV.get(`${league}:lastUpdate`);
+        // Derived from the data itself (most recent belt change, else the
+        // static snapshot's asOfDate) so the cron never writes a per-tick
+        // timestamp to KV. changes[] is sorted ascending in readMergedLineage.
+        const changes = lineage.changes || [];
+        const lastUpdate = changes.length ? changes[changes.length - 1].date : lineage.asOfDate;
         return cors.json({
           ok: true, league,
           currentChamp: lineage.currentChamp,
@@ -409,10 +413,7 @@ async function updateLeagueIncremental(league, env) {
     if (since >= end) return;
     // Fetch only games involving the current holder in [since, end].
     const games = await ADAPTERS[league].fetchRecentForTeam(lineage.currentChamp, since, end);
-    if (!games.length) {
-      await env.KV.put(`${league}:lastUpdate`, new Date().toISOString());
-      return;
-    }
+    if (!games.length) return; // nothing changed — don't write to KV
     games.sort((a, b) => new Date(a.date) - new Date(b.date));
     const { current, changes, events } = computeLineage(games, lineage.currentChamp);
     const newChanges = changes.filter(c => !c.seed && c.from !== null);
@@ -427,7 +428,8 @@ async function updateLeagueIncremental(league, env) {
     if (events.length) {
       await appendEventsToKV(league, events, env);
     }
-    await env.KV.put(`${league}:lastUpdate`, new Date().toISOString());
+    // No unconditional per-tick timestamp write: the branches above only touch
+    // KV when deltas/events actually changed, so an unchanged tick writes nothing.
   } catch (err) {
     console.log(`updateLeagueIncremental ${league} failed:`, err.message);
   }
@@ -1977,7 +1979,7 @@ const ADMIN_HTML = `<!doctype html>
       +   '<div class="k">As-of date</div><div><code class="asof">—</code></div>'
       +   '<div class="k">Total changes</div><div><code class="ct">—</code></div>'
       +   '<div class="k">Live updates</div><div><code class="dt">—</code></div>'
-      +   '<div class="k">Last cron run</div><div><code class="lu">—</code></div>'
+      +   '<div class="k">Data updated</div><div><code class="lu">—</code></div>'
       + '</div>'
       + '<div class="row" style="margin-top:12px">'
       +   '<button class="probe">Probe upstream</button>'
