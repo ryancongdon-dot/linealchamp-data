@@ -108,6 +108,13 @@ TEAM_TO_CODE: dict[str, str] = {
     "washington redskins": "WAS",
     "boston redskins": "WAS", "boston braves": "WAS",
     "commanders": "WAS", "redskins": "WAS",
+    # Defunct NFL franchises. Distinct codes (not the modern team codes) so
+    # historical games don't get attributed to wrong franchises. These teams
+    # all played in the 1933 era; the Bears' first lineal-champion year.
+    "brooklyn dodgers": "BKND",      # NFL franchise 1930-44, distinct from MLB Dodgers
+    "cincinnati reds": "CINR",       # NFL franchise 1933-34, distinct from MLB Reds
+    "cincinnati reds (nfl)": "CINR",
+    "brooklyn dodgers (nfl)": "BKND",
 }
 
 
