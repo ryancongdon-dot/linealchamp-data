@@ -180,7 +180,12 @@ export default {
           name: body.name || code,
           color: body.color || curr[code]?.color || "#333",
           alt:   body.alt   || curr[code]?.alt   || "#888",
-          logo:  body.logo  || curr[code]?.logo  || "",
+          // Use Object.prototype.hasOwnProperty so an explicit empty-string
+          // logo overwrites the stored value (clears stale/bad URLs);
+          // omitting `logo` from the body preserves whatever is already there.
+          logo:  Object.prototype.hasOwnProperty.call(body, "logo")
+                   ? (body.logo || "")
+                   : (curr[code]?.logo || ""),
         };
         await saveBrand(env, league, curr);
         // Purge edge cache for this league's brand response so the next reader
