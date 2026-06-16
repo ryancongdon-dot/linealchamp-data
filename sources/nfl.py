@@ -44,7 +44,7 @@ from typing import Optional
 import requests
 
 from lineage import Game, norm
-from sources import nfl_wiki
+from sources import nfl_wiki, nfl_supplemental
 
 SEED_TEAM = "CHI"           # 1933 NFL Champion: Chicago Bears
 SEED_DATE = "1933-12-17"    # 1933 NFL Championship Game: Bears 23-21 Giants
