@@ -198,4 +198,20 @@ def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
 
         print(f"  NFL season {season}: kept {kept} of {len(items)} games", flush=True)
 
-    return out
+    # ── Supplemental: hand-curated pre-merger NFL Championships ─────────────
+    # These get added LAST so the per-key dedup below keeps the hand-curated
+    # game when the scraper happens to have caught the same matchup.
+    supp_added = 0
+    for g in nfl_supplemental.supplemental_games():
+        if start <= g.date[:10] <= end:
+            out.append(g)
+            supp_added += 1
+    print(f"  NFL supplemental: added {supp_added} curated championships", flush=True)
+
+    # Dedupe by (date, frozenset({teams})). Keeps the LAST occurrence so the
+    # hand-curated supplemental wins if the scraper ever catches up.
+    by_key: dict[tuple[str, frozenset[str]], Game] = {}
+    for g in out:
+        key = (g.date[:10], frozenset({g.home_id, g.away_id}))
+        by_key[key] = g
+    return list(by_key.values())
