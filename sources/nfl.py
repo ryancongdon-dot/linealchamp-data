@@ -111,13 +111,22 @@ def _fetch_season(season: int, cache_dir: Path) -> list[dict]:
     return all_items
 
 
+# BDL uses some team abbreviations that differ from the canonical codes our
+# Wikipedia historical scraper uses. Normalize so the same franchise doesn't
+# appear as two separate teams across the 2001/2002 data boundary.
+BDL_TO_CANONICAL = {
+    "WSH": "WAS",   # Washington Commanders (BDL=WSH, Wikipedia=WAS)
+}
+
+
 def _team_id(team: dict) -> str:
     if not team:
         return ""
     for k in ("abbreviation", "short_code", "full_name", "name"):
         v = team.get(k)
         if v:
-            return norm(v)
+            code = norm(v)
+            return BDL_TO_CANONICAL.get(code, code)
     return ""
 
 
