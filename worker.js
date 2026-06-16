@@ -949,6 +949,41 @@ const PUBLIC_HTML = `<!doctype html>
               border: 1px solid rgba(184,134,11,0.35); border-radius: 10px;
               color: #f0d77a; letter-spacing: 0.02em; transition: all 0.15s; }
   .lore-btn:hover { border-color: #f0d77a; background: linear-gradient(135deg, rgba(184,134,11,0.25), rgba(255,215,0,0.1)); }
+  /* "What if?" branch toggles — same gold accent as lore for visual family */
+  .whatif-area { margin-top: 14px; margin-bottom: 4px; }
+  .whatif-btn  { width: 100%; padding: 10px 14px; font-size: 13px; cursor: pointer;
+                 background: linear-gradient(135deg, rgba(184,134,11,0.12), rgba(255,215,0,0.04));
+                 border: 1px solid rgba(184,134,11,0.3); border-radius: 10px;
+                 color: #f0d77a; letter-spacing: 0.02em; transition: all 0.15s; }
+  .whatif-btn:hover { border-color: #f0d77a;
+                      background: linear-gradient(135deg, rgba(184,134,11,0.22), rgba(255,215,0,0.08)); }
+  .branch-banner { display: flex; align-items: center; gap: 10px;
+                   padding: 10px 14px; margin: 12px 0;
+                   background: linear-gradient(90deg, rgba(184,134,11,0.18), rgba(184,134,11,0.04));
+                   border: 1px solid rgba(184,134,11,0.45);
+                   border-radius: 10px; font-size: 13px; color: #f0d77a; }
+  .branch-banner .banner-icon { font-size: 16px; flex-shrink: 0; }
+  .branch-banner .banner-text { flex: 1; }
+  .branch-banner .banner-reset {
+    background: rgba(184,134,11,0.18); border: 1px solid rgba(184,134,11,0.5);
+    color: #f0d77a; padding: 4px 10px; border-radius: 6px;
+    cursor: pointer; font-size: 12px; }
+  .branch-banner .banner-reset:hover { background: rgba(184,134,11,0.3); }
+  .whatif-intro { margin-bottom: 18px; font-size: 14px; line-height: 1.55; color: var(--text); }
+  .whatif-intro p { margin: 0 0 8px; }
+  .whatif-list { display: flex; flex-direction: column; gap: 10px; }
+  .whatif-row {
+    display: flex; gap: 12px; padding: 12px;
+    border: 1px solid var(--border); border-radius: 8px;
+    align-items: flex-start; cursor: pointer; transition: background 0.1s; }
+  .whatif-row:hover { background: rgba(255,255,255,0.025); }
+  .whatif-row input { margin-top: 4px; flex-shrink: 0; cursor: pointer; }
+  .whatif-text { flex: 1; min-width: 0; }
+  .whatif-name { font-weight: 600; margin-bottom: 2px; }
+  .whatif-summary { font-size: 11px; color: var(--text-dim);
+                    margin-bottom: 6px; text-transform: uppercase;
+                    letter-spacing: 0.06em; }
+  .whatif-text p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-dim); }
   .lore-intro { margin-bottom: 22px; font-size: 14px; line-height: 1.6; color: var(--text); }
   .lore-intro p { margin: 0 0 10px; }
   .lore-list { display: flex; flex-direction: column; gap: 22px; }
@@ -1213,6 +1248,11 @@ const PUBLIC_HTML = `<!doctype html>
   <div class="tracker" id="tracker">
   <h1>The Lineal Champ <button id="aboutBtn" class="about-link" title="About">?</button></h1>
   <div class="tabs" id="tabs"></div>
+  <div class="branch-banner" id="branchBanner" style="display:none">
+    <span class="banner-icon">🔀</span>
+    <span class="banner-text" id="branchBannerText">Alternate timeline active</span>
+    <button class="banner-reset" id="branchReset" type="button">Reset to canonical</button>
+  </div>
   <div class="hero" id="hero">
     <div class="accent-bg"></div>
     <div class="label">Current Lineal Champion</div>
@@ -1224,6 +1264,10 @@ const PUBLIC_HTML = `<!doctype html>
       </div>
     </div>
     <div class="stats" id="statsGrid"></div>
+  </div>
+
+  <div class="whatif-area" id="whatifArea" style="display:none">
+    <button class="whatif-btn" id="whatifBtn" type="button">🤔 What if? — explore alternate timelines</button>
   </div>
 
   <div class="strip">
@@ -1497,6 +1541,189 @@ const PUBLIC_HTML = `<!doctype html>
     showModal('The Lore of the Lineal Championship', 'Boxing 1882 → present', body);
   }
 
+  /* ─── Branch points — "what if" alternate timelines ─────────────────── */
+  /* v1 supports the truncate_after_reign edit primitive. The chain is
+     re-walked client-side whenever a branch is toggled; the canonical chain
+     stays untouched. See BRANCH_POINTS.md for the full design + roadmap. */
+
+  var BRANCH_POINTS = [
+    {
+      id: 'marciano-1956', league: 'BOXHW',
+      name: 'Marciano retires the chain',
+      summary: 'Strict-purist view',
+      description: 'When Rocky Marciano retired undefeated in 1956, no one ever beat him. By the strict "the man who beat the man" rule, the chain is broken permanently. Under this branch, there has been no lineal heavyweight champion since 1956.',
+      edit: { type: 'truncate_after_reign', champ: 'MARCIANO' },
+    },
+    {
+      id: 'tunney-1928', league: 'BOXHW',
+      name: 'Tunney retires the chain',
+      summary: 'Strict-purist view (earlier era)',
+      description: 'Gene Tunney retired undefeated in 1928. Under strict purist rules, his retirement permanently broke the chain — Schmeling winning the vacant title in 1930 does not count as inheriting from Tunney.',
+      edit: { type: 'truncate_after_reign', champ: 'TUNNEY' },
+    },
+    {
+      id: 'jeffries-1905', league: 'BOXHW',
+      name: 'Jeffries retires the chain',
+      summary: 'Strict-purist view (earliest break)',
+      description: 'James J. Jeffries retired undefeated in 1905. Under strict purist rules, no lineal heavyweight champion exists after Jeffries — Burns winning the vacant title in 1906 does not inherit the line.',
+      edit: { type: 'truncate_after_reign', champ: 'JEFFRIES' },
+    },
+    {
+      id: 'ali-retired-1979', league: 'BOXHW',
+      name: 'Ali retires the chain',
+      summary: 'Holmes is just a WBC titleholder',
+      description: 'Muhammad Ali retired as lineal champion in 1979. Under this branch, no one inherits — Larry Holmes’s 1980 win over Ali’s comeback does not restore the chain.',
+      edit: { type: 'truncate_after_reign', champ: 'MUHAMMADALI' },
+    },
+    {
+      id: 'calzaghe-2008', league: 'BOXLHW',
+      name: 'Calzaghe retires the chain',
+      summary: 'Strict-purist view',
+      description: 'Joe Calzaghe retired undefeated at the end of 2008 after beating Roy Jones Jr. By the strict "man who beat the man" rule, Hopkins’s 2011 win over Pascal does not restore the chain — there has been no lineal light-heavyweight champion since.',
+      edit: { type: 'truncate_after_reign', champ: 'CALZAGHE' },
+    },
+  ];
+
+  var ACTIVE_BRANCHES = [];
+  var CANONICAL_CHANGES = null;
+  var CANONICAL_CHAMP = null;
+
+  function branchesForLeague(L) {
+    return BRANCH_POINTS.filter(function(bp){ return bp.league === L; });
+  }
+
+  function applyEdit(changes, edit) {
+    if (edit.type === 'truncate_after_reign') {
+      // Find the latest entry where this champ TOOK the belt (their last reign-start).
+      var lastWin = -1;
+      for (var i = changes.length - 1; i >= 0; i--) {
+        if (changes[i].to === edit.champ) { lastWin = i; break; }
+      }
+      if (lastWin < 0) return changes; // Champ never held belt in this chain.
+      // Find the next entry where this champ LOST the belt.
+      var loss = -1;
+      for (var j = lastWin + 1; j < changes.length; j++) {
+        if (changes[j].from === edit.champ) { loss = j; break; }
+      }
+      if (loss < 0) return changes; // Champ never lost — they're still champ.
+      return changes.slice(0, loss);
+    }
+    return changes;
+  }
+
+  function applyActiveBranches() {
+    if (!CANONICAL_CHANGES) return;
+    var working = CANONICAL_CHANGES.slice();
+    ACTIVE_BRANCHES.forEach(function(bid){
+      var bp = BRANCH_POINTS.find(function(x){ return x.id === bid; });
+      if (bp && bp.league === league) working = applyEdit(working, bp.edit);
+    });
+    DATA.changes = working;
+    DATA.currentChamp = working.length
+      ? working[working.length - 1].to
+      : null;
+  }
+
+  function toggleBranch(bid) {
+    var idx = ACTIVE_BRANCHES.indexOf(bid);
+    if (idx >= 0) ACTIVE_BRANCHES.splice(idx, 1);
+    else ACTIVE_BRANCHES.push(bid);
+    applyActiveBranches();
+    rerenderForBranchChange();
+  }
+
+  function resetBranches() {
+    ACTIVE_BRANCHES = ACTIVE_BRANCHES.filter(function(bid){
+      var bp = BRANCH_POINTS.find(function(x){ return x.id === bid; });
+      return !bp || bp.league !== league;
+    });
+    applyActiveBranches();
+    rerenderForBranchChange();
+  }
+
+  function rerenderForBranchChange() {
+    renderHero();
+    renderStrip();
+    if (el('timeline').classList.contains('open')) renderTimeline();
+    renderWhatIfBadge();
+    updateBranchUrl();
+  }
+
+  function renderWhatIfBadge() {
+    var branches = branchesForLeague(league);
+    var area = el('whatifArea');
+    var banner = el('branchBanner');
+    if (!area || !banner) return;
+    if (!branches.length) {
+      area.style.display = 'none';
+      banner.style.display = 'none';
+      return;
+    }
+    area.style.display = '';
+    var activeForLeague = ACTIVE_BRANCHES.filter(function(bid){
+      var bp = BRANCH_POINTS.find(function(x){ return x.id === bid; });
+      return bp && bp.league === league;
+    });
+    if (activeForLeague.length) {
+      banner.style.display = 'flex';
+      var names = activeForLeague.map(function(bid){
+        var bp = BRANCH_POINTS.find(function(x){ return x.id === bid; });
+        return bp ? bp.name : bid;
+      }).join(' · ');
+      el('branchBannerText').textContent = 'Alternate timeline: ' + names;
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+
+  function openWhatIfModal() {
+    var branches = branchesForLeague(league);
+    if (!branches.length) return;
+    var body =
+      '<div class="whatif-intro">'
+      + '<p>At certain historical inflection points the lineal chain could '
+      + 'defensibly have gone differently. Toggle alternates below to see '
+      + 'how the chain rewrites itself in real time.</p>'
+      + '<p style="font-size:12px;color:var(--text-dim)">Your selection persists in the URL so you can share an alternate timeline. Reset any time from the banner above the tracker.</p>'
+      + '</div>'
+      + '<div class="whatif-list">'
+      + branches.map(function(bp){
+          var active = ACTIVE_BRANCHES.indexOf(bp.id) >= 0;
+          return '<label class="whatif-row">'
+            + '<input type="checkbox" data-bid="' + bp.id + '" ' + (active ? 'checked' : '') + '/>'
+            + '<div class="whatif-text">'
+            + '<div class="whatif-name">' + escapeHTML(bp.name) + '</div>'
+            + '<div class="whatif-summary">' + escapeHTML(bp.summary) + '</div>'
+            + '<p>' + escapeHTML(bp.description) + '</p>'
+            + '</div>'
+            + '</label>';
+        }).join('')
+      + '</div>';
+    showModal('What if? — alternate timelines',
+              branches.length + ' branch' + (branches.length === 1 ? '' : 'es') + ' available for this league',
+              body);
+    setTimeout(function(){
+      document.querySelectorAll('.whatif-row input[data-bid]').forEach(function(input){
+        input.addEventListener('change', function(){
+          toggleBranch(input.getAttribute('data-bid'));
+        });
+      });
+    }, 0);
+  }
+
+  function readBranchUrl() {
+    var p = new URLSearchParams(location.search);
+    var b = p.get('branch');
+    return b ? b.split(',').filter(Boolean) : [];
+  }
+
+  function updateBranchUrl() {
+    var p = new URLSearchParams(location.search);
+    if (ACTIVE_BRANCHES.length) p.set('branch', ACTIVE_BRANCHES.join(','));
+    else p.delete('branch');
+    history.replaceState(null, '', '?' + p.toString());
+  }
+
   function showComingSoon(wc){
     var html =
       '<div style="text-align:center;padding:18px 0">'
@@ -1587,8 +1814,18 @@ const PUBLIC_HTML = `<!doctype html>
       var r = await fetch('/api/lineage?league='+league);
       if (!r.ok) { el('champName').textContent='No data yet'; el('champSub').textContent='Run build_lineage.py + upload_to_worker.py first.'; return; }
       DATA = await r.json();
+      // Snapshot the canonical chain so branch toggles can recompute from it
+      // without re-fetching, and so "Reset to canonical" always restores it.
+      CANONICAL_CHANGES = (DATA.changes || []).slice();
+      CANONICAL_CHAMP = DATA.currentChamp;
+      // Adopt any branches encoded in the URL that apply to this league.
+      ACTIVE_BRANCHES = readBranchUrl().filter(function(bid){
+        return BRANCH_POINTS.some(function(bp){ return bp.id === bid; });
+      });
+      applyActiveBranches();
       renderHero();
       renderStrip();
+      renderWhatIfBadge();
       if (el('timeline').classList.contains('open')) renderTimeline();
     } catch (e) {
       el('champName').textContent = 'Error';
@@ -1859,6 +2096,8 @@ const PUBLIC_HTML = `<!doctype html>
     if (el('askPanel').classList.contains('on')) el('askInput').focus();
   });
   if (el('aboutBtn')) el('aboutBtn').addEventListener('click', function(){ location.href = '/'; });
+  if (el('whatifBtn')) el('whatifBtn').addEventListener('click', openWhatIfModal);
+  if (el('branchReset')) el('branchReset').addEventListener('click', resetBranches);
   el('modalClose').addEventListener('click', closeModal);
   el('modalBack').addEventListener('click', function(e){
     if (e.target === el('modalBack')) closeModal();
