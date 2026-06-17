@@ -1255,7 +1255,7 @@ const PUBLIC_HTML = `<!doctype html>
   </div>
   <div class="hero" id="hero">
     <div class="accent-bg"></div>
-    <div class="label">Current Lineal Champion</div>
+    <div class="label" id="heroLabel">Current Lineal Champion</div>
     <div class="champ-row">
       <img id="champLogo" class="champ-logo no-logo" alt=""/>
       <div class="champ-text">
@@ -1587,6 +1587,10 @@ const PUBLIC_HTML = `<!doctype html>
   var ACTIVE_BRANCHES = [];
   var CANONICAL_CHANGES = null;
   var CANONICAL_CHAMP = null;
+  // When a truncate_after_reign branch is active, this records the context
+  // so the UI can show "Chain broken" instead of treating the retiree as
+  // a current champion who's held the belt for decades.
+  var BRANCH_TRUNCATION = null;  // null | { champ, breakDate, reignStart }
 
   function branchesForLeague(L) {
     return BRANCH_POINTS.filter(function(bp){ return bp.league === L; });
@@ -1606,6 +1610,13 @@ const PUBLIC_HTML = `<!doctype html>
         if (changes[j].from === edit.champ) { loss = j; break; }
       }
       if (loss < 0) return changes; // Champ never lost — they're still champ.
+      // Record the chain-break context so the UI can present this as
+      // "chain ended on date X" rather than "current champion of 26,000 days".
+      BRANCH_TRUNCATION = {
+        champ: edit.champ,
+        breakDate: changes[loss].date,
+        reignStart: changes[lastWin].date,
+      };
       return changes.slice(0, loss);
     }
     return changes;
@@ -1613,6 +1624,7 @@ const PUBLIC_HTML = `<!doctype html>
 
   function applyActiveBranches() {
     if (!CANONICAL_CHANGES) return;
+    BRANCH_TRUNCATION = null;  // each rebuild starts clean; edits set it
     var working = CANONICAL_CHANGES.slice();
     ACTIVE_BRANCHES.forEach(function(bid){
       var bp = BRANCH_POINTS.find(function(x){ return x.id === bid; });
@@ -1849,14 +1861,31 @@ const PUBLIC_HTML = `<!doctype html>
     var changes = (DATA.changes || []).slice().sort(function(a,b){ return new Date(a.date)-new Date(b.date); });
     var last = changes[changes.length-1];
     var reignStart = last ? last.date : null;
-    var days = reignStart ? daysBetween(reignStart, new Date().toISOString()) : 0;
+    // When a truncate branch is active, "days held" is the actual reign
+    // length up to the break (when the holder lost in canonical), not
+    // days until today — otherwise Marciano shows ~26,000 days, which
+    // misrepresents an alternate timeline where he's been dead since 1969.
+    var reignEnd = BRANCH_TRUNCATION ? BRANCH_TRUNCATION.breakDate : new Date().toISOString();
+    var days = reignStart ? daysBetween(reignStart, reignEnd) : 0;
     var prev = null;
     for (var i = changes.length-1; i >= 0; i--) {
       if (changes[i].from && changes[i].from !== DATA.currentChamp) { prev = changes[i]; break; }
     }
-    el('champSub').innerHTML = prev
-      ? 'Won the belt on '+fmtDate(prev.date)+' vs '+escapeHTML(brandFor(prev.from).name)
-      : (DATA.asOfDate ? 'Holds the lineal title (data as of '+fmtDate(DATA.asOfDate)+')' : '');
+    // Swap framing when the chain is truncated by a branch.
+    var heroLabel = el('heroLabel');
+    if (heroLabel) {
+      heroLabel.textContent = BRANCH_TRUNCATION ? 'Final Lineal Champion' : 'Current Lineal Champion';
+    }
+    if (BRANCH_TRUNCATION) {
+      el('champSub').innerHTML =
+        '<span style="color:#f0d77a">Chain broken on ' + fmtDate(BRANCH_TRUNCATION.breakDate) + '</span>'
+        + ' — ' + escapeHTML(b.name) + ' retired undefeated. '
+        + 'Under this alternate timeline, there has been no lineal champion since.';
+    } else {
+      el('champSub').innerHTML = prev
+        ? 'Won the belt on '+fmtDate(prev.date)+' vs '+escapeHTML(brandFor(prev.from).name)
+        : (DATA.asOfDate ? 'Holds the lineal title (data as of '+fmtDate(DATA.asOfDate)+')' : '');
+    }
 
     var reigns = computeAllReigns(changes);
     var totalChanges = (DATA.changes||[]).filter(function(c){ return c.from; }).length;
@@ -1892,14 +1921,17 @@ const PUBLIC_HTML = `<!doctype html>
   }
 
   // All historical reigns as { team, startDate, endDate, days }.
-  // The active reign uses today as endDate.
+  // The active (last) reign normally uses today as endDate; when a
+  // truncate branch is active, it instead ends at the canonical break
+  // date so historical longevity comparisons stay honest.
   function computeAllReigns(changes){
     var sorted = changes.slice().sort(function(a,b){ return new Date(a.date) - new Date(b.date); });
     var out = [];
     var todayIso = new Date().toISOString();
+    var activeEnd = BRANCH_TRUNCATION ? BRANCH_TRUNCATION.breakDate : todayIso;
     for (var i = 0; i < sorted.length; i++) {
       var c = sorted[i];
-      var endIso = (i+1 < sorted.length) ? sorted[i+1].date : todayIso;
+      var endIso = (i+1 < sorted.length) ? sorted[i+1].date : activeEnd;
       out.push({ team: c.to, startDate: c.date, endDate: endIso, days: daysBetween(c.date, endIso) });
     }
     return out;
@@ -1948,12 +1980,24 @@ const PUBLIC_HTML = `<!doctype html>
     var last = changes[changes.length-1];
     var start = last ? last.date : null;
     var b = brandFor(DATA.currentChamp);
+    // When a truncate branch is active, only show fights up to the chain break.
+    var endCutoff = BRANCH_TRUNCATION ? new Date(BRANCH_TRUNCATION.breakDate) : null;
     var games = (EVENTS||[]).filter(function(ev){
-      return ev.champ === DATA.currentChamp && (!start || new Date(ev.date) >= new Date(start));
+      if (ev.champ !== DATA.currentChamp) return false;
+      if (start && new Date(ev.date) < new Date(start)) return false;
+      if (endCutoff && new Date(ev.date) >= endCutoff) return false;
+      return true;
     }).sort(function(a,b){ return new Date(b.date) - new Date(a.date); });
     var isBoxing = league === 'BOXHW';
     var unitLabel = isBoxing ? 'title fight' : 'game';
-    var sub = b.name + ' — current reign began ' + (start ? fmtDate(start) : '—');
+    var sub;
+    if (BRANCH_TRUNCATION) {
+      sub = b.name + ' — reigned ' + (start ? fmtDate(start) : '—')
+            + ' to ' + fmtDate(BRANCH_TRUNCATION.breakDate)
+            + ' (chain broken under active alternate timeline)';
+    } else {
+      sub = b.name + ' — current reign began ' + (start ? fmtDate(start) : '—');
+    }
     var body = games.length
       ? games.map(function(ev){
           var opp = brandFor(ev.opponent);
@@ -1969,7 +2013,8 @@ const PUBLIC_HTML = `<!doctype html>
             + '</div>';
         }).join('')
       : '<div style="color:var(--text-dim);padding:10px 0">No '+unitLabel+'s recorded during this reign yet.</div>';
-    showModal('Current reign — ' + games.length + ' ' + unitLabel + (games.length===1?'':'s'), sub, body);
+    var title = BRANCH_TRUNCATION ? 'Final reign' : 'Current reign';
+    showModal(title + ' — ' + games.length + ' ' + unitLabel + (games.length===1?'':'s'), sub, body);
   }
 
   function openHistoryModal(){
