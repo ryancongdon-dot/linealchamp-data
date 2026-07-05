@@ -42,11 +42,16 @@ jobs:
 
       - run: pip install -r requirements.txt
 
+      # NFL is deliberately excluded: its live chain (1933 Bears seed, 538
+      # changes) was built by a separate Wikipedia-scraper pipeline with its
+      # own team codes, and rebuilding it here from pro-football-reference
+      # would overwrite that curated data with mismatched codes. Re-add NFL
+      # once the two pipelines are consolidated in this repo.
       - name: Build lineage
         env:
           BDL_API_KEY: ${{ secrets.BDL_API_KEY }}
           CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
-        run: python build_lineage.py
+        run: python build_lineage.py --leagues NBA,MLB,NHL,EPL,CFB
 
       # Upload whatever leagues built successfully even if one source failed —
       # a broken EPL fetch shouldn't keep fresh NBA data off the site.
