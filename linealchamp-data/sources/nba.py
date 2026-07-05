@@ -41,6 +41,7 @@ from typing import Optional
 import requests
 
 from lineage import Game, norm
+from sources.util import cache_is_complete, is_recent, looks_final
 
 SEED_TEAM = norm("PHW")  # Philadelphia Warriors — 1947 BAA Finals winner
 SEED_DATE = "1947-04-22"
@@ -64,7 +65,7 @@ def _cache_path(cache_dir: Path, start: str, end: str, postseason: bool) -> Path
 
 def _fetch_window(start: str, end: str, postseason: bool, cache_dir: Path) -> list[dict]:
     cf = _cache_path(cache_dir, start, end, postseason)
-    if cf.exists():
+    if cache_is_complete(cf, end):
         try:
             return json.loads(cf.read_text())
         except Exception:
@@ -136,6 +137,11 @@ def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
                 # Treat 0-0 unfinished games as missing (status check would be cleaner,
                 # but historical BDL data doesn't always populate status reliably).
                 if hs == 0 and vs == 0:
+                    continue
+                # Near the as-of date a game may still be in progress; require an
+                # explicit Final status there so partial scores never get recorded.
+                game_date = it.get("date") or f"{y}-01-01"
+                if is_recent(game_date, end) and not looks_final(it.get("status")):
                     continue
                 out.append(
                     Game(

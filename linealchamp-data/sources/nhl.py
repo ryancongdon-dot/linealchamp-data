@@ -32,6 +32,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from lineage import Game, norm
+from sources.util import cache_is_complete
 
 SEED_TEAM = norm("MTL")  # Montreal Canadiens (Wanderers won the first game, but
                           # franchise folded mid-season after their arena burned;
@@ -52,7 +53,9 @@ def _cached_year_html(cache_dir: Path, year: int) -> Path:
 
 def _fetch_year_html(year: int, cache_dir: Path) -> str:
     cf = _cached_year_html(cache_dir, year)
-    if cf.exists() and cf.stat().st_size > 0:
+    # HR pages are keyed by season-END year; the season (incl. the Stanley Cup
+    # Final) is over by July of that year. Only trust closed windows.
+    if cache_is_complete(cf, f"{year}-07-01"):
         return cf.read_text(encoding="utf-8")
     r = requests.get(HR_URL_TMPL.format(year=year), headers=HEADERS, timeout=30)
     if r.status_code == 404:

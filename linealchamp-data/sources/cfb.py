@@ -41,6 +41,7 @@ from typing import Optional
 import requests
 
 from lineage import Game, norm
+from sources.util import cache_is_complete
 
 SEED_TEAM = norm("Princeton")
 SEED_DATE = "1869-11-06"
@@ -100,7 +101,10 @@ def _api_key() -> str:
 
 def _cached_year(cache_dir: Path, year: int, season_type: str) -> Optional[list]:
     f = cache_dir / f"{year}-{season_type}.json"
-    if f.exists():
+    # Postseason spills into January of the next year (CFP championship);
+    # only trust a cached file once its window can no longer grow.
+    window_end = f"{year}-12-20" if season_type == "regular" else f"{year + 1}-01-31"
+    if cache_is_complete(f, window_end):
         try:
             return json.loads(f.read_text())
         except Exception:

@@ -1,0 +1,57 @@
+name: Refresh lineal data
+
+# Rebuilds the full lineage for all six leagues and pushes it to the Worker's
+# KV. Runs nightly (09:17 UTC — after even the latest US West Coast games have
+# finished) and can be run by hand from the Actions tab ("Run workflow").
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   BDL_API_KEY    balldontlie key (NBA + EPL)
+#   CFBD_API_KEY   collegefootballdata.com key (CFB)
+#   ADMIN_SECRET   the Worker's env.ADMIN_SECRET (authorizes the KV upload)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 9 * * *"
+
+concurrency: refresh-data
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: linealchamp-data
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Persist the raw-download cache between runs so nightly runs only
+      # refetch the current, still-open seasons (a couple of minutes) instead
+      # of 150 years of history (~30 min on a cold cache).
+      - uses: actions/cache@v4
+        with:
+          path: linealchamp-data/cache
+          key: source-cache-v1-${{ github.run_id }}
+          restore-keys: |
+            source-cache-v1-
+
+      - run: pip install -r requirements.txt
+
+      - name: Build lineage
+        env:
+          BDL_API_KEY: ${{ secrets.BDL_API_KEY }}
+          CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+        run: python build_lineage.py
+
+      # Upload whatever leagues built successfully even if one source failed —
+      # a broken EPL fetch shouldn't keep fresh NBA data off the site.
+      - name: Upload to Worker KV
+        if: ${{ !cancelled() }}
+        env:
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+        run: python upload_to_worker.py
