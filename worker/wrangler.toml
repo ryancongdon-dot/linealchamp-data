@@ -1,0 +1,33 @@
+# Cloudflare Worker config for linealchamp-api.
+#
+# Once worker.js lands in this directory, every push to main auto-deploys via
+# .github/workflows/deploy-worker.yml — no more pasting code into the
+# Cloudflare dashboard editor.
+#
+# TWO VALUES TO CHECK before the first deploy:
+#   1. kv_namespaces.id — the full LINEALCHAMP namespace ID, from
+#      dash.cloudflare.com → Storage & Databases → KV (it starts f1e34c5b4dbd4…).
+#   2. kv_namespaces.binding — must match the name the code uses (env.<BINDING>).
+#      "LINEALCHAMP" is a guess; grep worker.js for `env.` to confirm.
+#
+# Secrets (ADMIN_SECRET, API keys) already set on the deployed worker are
+# preserved across wrangler deploys — no need to re-enter them.
+
+name = "linealchamp-api"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+# Hourly cron — replaces the every-few-minutes schedule that was burning
+# through the free tier's 1,000 KV writes/day.
+[triggers]
+crons = ["0 * * * *"]
+
+kv_namespaces = [
+  { binding = "LINEALCHAMP", id = "REPLACE_WITH_FULL_KV_NAMESPACE_ID" }
+]
+
+# If the thelinealchamp.com custom domain ever detaches after a deploy,
+# uncomment and adjust:
+# routes = [
+#   { pattern = "thelinealchamp.com", custom_domain = true }
+# ]

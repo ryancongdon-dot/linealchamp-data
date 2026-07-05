@@ -1,0 +1,39 @@
+name: Deploy worker
+
+# Deploys worker/ to Cloudflare whenever it changes on main.
+# Required repo secrets: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
+# (see worker/README.md for how to create them).
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["worker/**"]
+
+concurrency: deploy-worker
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The pipeline is scaffolded before the code is migrated; skip cleanly
+      # until worker/worker.js actually exists.
+      - name: Check worker code is present
+        id: check
+        run: |
+          if [ -f worker/worker.js ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "worker/worker.js not in the repo yet — skipping deploy"
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy to Cloudflare
+        if: steps.check.outputs.present == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
