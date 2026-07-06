@@ -1,0 +1,26 @@
+name: Upload boxing data
+
+# Ships the hand-curated boxing lineages to the Worker's KV whenever they
+# change on main. Requires the ADMIN_SECRET repo secret.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["boxing/**"]
+
+concurrency: upload-boxing
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - name: Upload lineages, events, and fighter names
+        env:
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+        run: python boxing/upload_boxing.py

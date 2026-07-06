@@ -41,6 +41,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from lineage import Game, norm
+from sources.util import cache_is_complete
 
 SEED_TEAM = norm("Akron Pros")  # 1920 APFA inaugural champion (conventional NFL lineal seed)
 SEED_DATE = "1920-09-26"  # first APFA game date
@@ -64,7 +65,9 @@ def _cached_year_html(cache_dir: Path, year: int) -> Path:
 
 def _fetch_year_html(year: int, cache_dir: Path) -> str:
     cf = _cached_year_html(cache_dir, year)
-    if cf.exists() and cf.stat().st_size > 0:
+    # An NFL season labeled N ends with the Super Bowl in February N+1; only
+    # trust the cached page once that window is closed.
+    if cache_is_complete(cf, f"{year + 1}-02-28"):
         return cf.read_text(encoding="utf-8")
     r = requests.get(PFR_URL_TMPL.format(year=year), headers=HEADERS, timeout=30)
     if r.status_code == 404:

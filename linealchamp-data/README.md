@@ -1,6 +1,7 @@
 # linealchamp-data
 
-One-time offline backfill tooling for the `linealchamp-api` Cloudflare Worker.
+Offline backfill + nightly refresh tooling for the `linealchamp-api`
+Cloudflare Worker.
 
 Generates the complete lineal-champion history for six sports leagues
 (NBA, NFL, MLB, NHL, EPL, CFB) and pushes it to the Worker's KV namespace.
@@ -41,7 +42,25 @@ respect a 3-second crawl delay, so a full backfill takes a while:
 - CFB (CFBD paginated, 157 years): ~5 min
 
 All sources cache their raw responses under `cache/<LEAGUE>/`, so re-runs
-are nearly instant.
+are nearly instant. A cached file is only reused when the season/window it
+covers had already ended when it was fetched — still-open seasons are
+refetched every run, so re-builds always pick up the latest games.
+
+## Automated nightly refresh (GitHub Actions)
+
+`.github/workflows/refresh-data.yml` rebuilds all six leagues every night at
+09:17 UTC and uploads the results to the Worker's KV, so the site stays
+current without anyone running scripts by hand. It can also be triggered
+manually: repo → **Actions** → *Refresh lineal data* → **Run workflow**.
+
+One-time setup — add three repository secrets under
+**Settings → Secrets and variables → Actions → New repository secret**:
+
+| secret | value |
+| --- | --- |
+| `BDL_API_KEY` | your balldontlie key (same one the Worker uses) |
+| `CFBD_API_KEY` | your collegefootballdata.com key |
+| `ADMIN_SECRET` | the Worker's `env.ADMIN_SECRET` |
 
 ## Usage
 
@@ -108,10 +127,10 @@ The most likely failures, in order of probability:
    their HTML structure. The parsers look for `data-stat` attributes which
    are stable historically; check `sources/<league>.py` for the table id
    (`games`, `games_playoffs`) and re-test.
-3. **MLB Retrosheet 404 for current year.** Retrosheet uploads new season
-   data ~6 months after the season ends. For the current season, use the
-   Worker's incremental update instead — the offline script only needs to
-   cover up through last completed season.
+3. **MLB StatsAPI shape drift.** Seasons 2012+ (including the in-progress
+   one, and all postseason games) come from the free statsapi.mlb.com
+   schedule endpoint; Retrosheet only covers pre-2012 now. If StatsAPI
+   changes shape, patch `sources/mlb.py::_statsapi_year`.
 4. **CFB rate-limited.** CFBD's free tier limits monthly calls. If you hit
    it, drop `--as-of` to a single year and resume after the month rolls.
 

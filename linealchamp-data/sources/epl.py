@@ -43,6 +43,7 @@ from typing import Optional
 import requests
 
 from lineage import Game, norm
+from sources.util import cache_is_complete, is_recent, looks_final
 
 SEED_TEAM = norm("Leeds United")  # 1991-92 Division One champions; last pre-EPL champs
 SEED_DATE = "1992-08-15"
@@ -65,7 +66,9 @@ def _cache_path(cache_dir: Path, season: int) -> Path:
 
 def _fetch_season(season: int, cache_dir: Path) -> list[dict]:
     cf = _cache_path(cache_dir, season)
-    if cf.exists():
+    # An EPL season labeled N runs Aug N → May N+1; only trust the cache once
+    # the season is over.
+    if cache_is_complete(cf, f"{season + 1}-06-15"):
         try:
             return json.loads(cf.read_text())
         except Exception:
@@ -176,6 +179,10 @@ def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
             d = _date_str(it) or f"{season}-08-01"
             iso_d = d if "T" in d else f"{d}T00:00:00Z"
             if not (start <= iso_d[:10] <= end):
+                continue
+            # Require an explicit final status near the as-of date so partial
+            # scores from in-progress matches never get recorded.
+            if is_recent(iso_d, end) and not looks_final(it.get("status")):
                 continue
             try:
                 out.append(
