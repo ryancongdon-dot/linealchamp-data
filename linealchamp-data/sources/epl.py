@@ -43,7 +43,7 @@ from typing import Optional
 import requests
 
 from lineage import Game, norm
-from sources.util import cache_is_complete, is_recent, looks_final
+from sources.util import cache_is_complete, get_with_backoff, is_recent, looks_final
 
 SEED_TEAM = norm("Leeds United")  # 1991-92 Division One champions; last pre-EPL champs
 SEED_DATE = "1992-08-15"
@@ -84,18 +84,15 @@ def _fetch_season(season: int, cache_dir: Path) -> list[dict]:
         }
         if cursor is not None:
             params["cursor"] = str(cursor)
-        r = requests.get(
+        r = get_with_backoff(
             BDL_EPL_URL,
-            params=params,
+            params,
             headers={
                 "Authorization": f"Bearer {_api_key()}",
                 "Accept": "application/json",
             },
-            timeout=30,
+            label=f"EPL {season}",
         )
-        if r.status_code == 429:
-            time.sleep(8)
-            continue
         if r.status_code in (401, 403):
             raise RuntimeError(
                 f"BDL EPL returned {r.status_code} — your BDL_API_KEY may not have "

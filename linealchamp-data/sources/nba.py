@@ -41,7 +41,7 @@ from typing import Optional
 import requests
 
 from lineage import Game, norm
-from sources.util import cache_is_complete, is_recent, looks_final
+from sources.util import cache_is_complete, get_with_backoff, is_recent, looks_final
 
 SEED_TEAM = norm("PHW")  # Philadelphia Warriors — 1947 BAA Finals winner
 SEED_DATE = "1947-04-22"
@@ -83,18 +83,15 @@ def _fetch_window(start: str, end: str, postseason: bool, cache_dir: Path) -> li
         }
         if cursor is not None:
             params["cursor"] = str(cursor)
-        r = requests.get(
+        r = get_with_backoff(
             BDL_URL,
-            params=params,
+            params,
             headers={
                 "Authorization": f"Bearer {_api_key()}",
                 "Accept": "application/json",
             },
-            timeout=30,
+            label=f"NBA {start}",
         )
-        if r.status_code == 429:
-            time.sleep(8)
-            continue
         r.raise_for_status()
         j = r.json()
         all_items.extend(j.get("data", []))
