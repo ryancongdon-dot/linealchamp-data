@@ -4,9 +4,8 @@
 # .github/workflows/deploy-worker.yml — no more pasting code into the
 # Cloudflare dashboard editor.
 #
-# ONE VALUE TO FILL IN before the first deploy:
-#   kv_namespaces.id — the full LINEALCHAMP namespace ID, from
-#   dash.cloudflare.com → Storage & Databases → KV (it starts f1e34c5b4dbd4…).
+# kv_namespaces.id is the LINEALCHAMP namespace
+# (dash.cloudflare.com → Storage & Databases → KV).
 #
 # Secrets (ADMIN_SECRET, API keys) already set on the deployed worker are
 # preserved across wrangler deploys — no need to re-enter them.
@@ -21,7 +20,7 @@ compatibility_date = "2026-01-01"
 crons = ["0 * * * *"]
 
 kv_namespaces = [
-  { binding = "KV", id = "REPLACE_WITH_FULL_KV_NAMESPACE_ID" }
+  { binding = "KV", id = "f1e34c5b4dbd41c9b8e92a1427c90969" }
 ]
 
 # If the thelinealchamp.com custom domain ever detaches after a deploy,
