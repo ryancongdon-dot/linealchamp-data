@@ -14,11 +14,10 @@ name = "linealchamp-api"
 main = "worker.js"
 compatibility_date = "2026-01-01"
 
-# Hourly cron — replaces the every-few-minutes schedule that was burning
-# through the free tier's 1,000 KV writes/day.
-[triggers]
-crons = ["0 * * * *"]
-
+# NOTE: top-level keys must stay ABOVE any [section] header — TOML assigns
+# everything below a header to that section. kv_namespaces below [triggers]
+# is silently ignored by wrangler, which deploys the Worker with NO KV
+# binding (env.KV undefined, every /admin upload 500s).
 kv_namespaces = [
   { binding = "KV", id = "f1e34c5b4dbd41c9b8e92a1427c90969" }
 ]
@@ -28,3 +27,8 @@ kv_namespaces = [
 # routes = [
 #   { pattern = "thelinealchamp.com", custom_domain = true }
 # ]
+
+# Hourly cron — replaces the every-few-minutes schedule that was burning
+# through the free tier's 1,000 KV writes/day.
+[triggers]
+crons = ["0 * * * *"]
