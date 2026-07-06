@@ -15,8 +15,11 @@ be refetched.
 
 from __future__ import annotations
 
+import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+
+import requests
 
 # Days of slack between a window's end and the cache write time before we
 # trust the file. Covers timezone skew and sources that publish results late.
@@ -58,3 +61,42 @@ def is_recent(game_date: str, as_of: str, days: int = RECENT_DAYS) -> bool:
     except ValueError:
         return True  # unparseable date: treat as recent, i.e. be strict
     return g >= a - timedelta(days=days)
+
+
+def get_with_backoff(
+    url: str,
+    params: dict,
+    headers: dict,
+    *,
+    timeout: int = 30,
+    max_retries: int = 12,
+    base_delay: float = 5,
+    max_delay: float = 60,
+    label: str = "",
+) -> requests.Response:
+    """GET with exponential backoff on 429, logging every retry.
+
+    balldontlie's free tier rate-limits hard enough that a naive fixed
+    8-second retry (the original behavior) could spend HOURS silently
+    re-hitting the same 429 for one page — that's what made a single NBA
+    backfill run past a 2-hour CI timeout with no visibility into why.
+    Backing off exponentially cuts the number of wasted requests, the
+    per-retry print gives visibility in logs, and the retry cap raises
+    instead of hanging forever — the caller's per-year/per-season try/except
+    already treats a raised error as "skip this window", so one skipped
+    page beats a run that never finishes.
+    """
+    delay = base_delay
+    for attempt in range(1, max_retries + 1):
+        r = requests.get(url, params=params, headers=headers, timeout=timeout)
+        if r.status_code == 429:
+            print(
+                f"  {label}: rate limited (429), attempt {attempt}/{max_retries}, "
+                f"backing off {delay:.0f}s",
+                flush=True,
+            )
+            time.sleep(delay)
+            delay = min(delay * 2, max_delay)
+            continue
+        return r
+    raise RuntimeError(f"{label}: exceeded {max_retries} retries on 429 rate limiting")

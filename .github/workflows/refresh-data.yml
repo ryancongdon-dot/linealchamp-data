@@ -1,8 +1,16 @@
 name: Refresh lineal data
 
-# Rebuilds the full lineage for all six leagues and pushes it to the Worker's
-# KV. Runs nightly (09:17 UTC — after even the latest US West Coast games have
-# finished) and can be run by hand from the Actions tab ("Run workflow").
+# Rebuilds each league's lineage independently and pushes it to the Worker's
+# KV. Runs nightly (09:17 UTC — after even the latest US West Coast games
+# have finished) and can be run by hand from the Actions tab ("Run workflow").
+#
+# One job per league (matrix), not one job for all leagues, because BDL's
+# free-tier rate limit makes NBA/EPL history fetches slow and unpredictable —
+# a single shared job let NBA alone eat the entire timeout budget before MLB,
+# NHL, or CFB ever got a turn. Matrixing means a slow league can't block the
+# others, and `save-always` on the cache means that even if a job DOES hit
+# its timeout, whatever years it already fetched are kept for next time
+# instead of being discarded and re-fetched from scratch forever.
 #
 # Required repository secrets (Settings → Secrets and variables → Actions):
 #   BDL_API_KEY    balldontlie key (NBA + EPL)
@@ -18,8 +26,20 @@ concurrency: refresh-data
 
 jobs:
   refresh:
+    strategy:
+      fail-fast: false
+      matrix:
+        # NFL is deliberately excluded: its live chain (1933 Bears seed, 538
+        # changes) was built by a separate Wikipedia-scraper pipeline with its
+        # own team codes, and rebuilding it here from pro-football-reference
+        # would overwrite that curated data with mismatched codes. Re-add NFL
+        # once the two pipelines are consolidated in this repo.
+        league: [NBA, MLB, NHL, EPL, CFB]
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    # Generous: on a cold cache, BDL's free-tier rate limiting can make NBA's
+    # 79-year history take several hours. Other leagues finish far sooner —
+    # matrixing means they aren't held hostage by NBA's worst case.
+    timeout-minutes: 240
     defaults:
       run:
         working-directory: linealchamp-data
@@ -30,33 +50,32 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Persist the raw-download cache between runs so nightly runs only
-      # refetch the current, still-open seasons (a couple of minutes) instead
-      # of 150 years of history (~30 min on a cold cache).
+      # Persist this league's raw-download cache between runs so nightly
+      # runs only refetch the current, still-open season instead of its
+      # entire history. save-always: true is the critical bit — without it,
+      # a run that hits timeout-minutes gets its cache save SKIPPED (GitHub's
+      # default), so a slow league would restart from its seed date on every
+      # single run and might never converge. With it, each run keeps whatever
+      # it fetched, so even a league that needs multiple runs to fully
+      # backfill makes forward progress instead of looping forever.
       - uses: actions/cache@v4
         with:
-          path: linealchamp-data/cache
-          key: source-cache-v1-${{ github.run_id }}
+          path: linealchamp-data/cache/${{ matrix.league }}
+          key: source-cache-v1-${{ matrix.league }}-${{ github.run_id }}
           restore-keys: |
-            source-cache-v1-
+            source-cache-v1-${{ matrix.league }}-
+          save-always: true
 
       - run: pip install -r requirements.txt
 
-      # NFL is deliberately excluded: its live chain (1933 Bears seed, 538
-      # changes) was built by a separate Wikipedia-scraper pipeline with its
-      # own team codes, and rebuilding it here from pro-football-reference
-      # would overwrite that curated data with mismatched codes. Re-add NFL
-      # once the two pipelines are consolidated in this repo.
-      - name: Build lineage
+      - name: Build lineage (${{ matrix.league }})
         env:
           BDL_API_KEY: ${{ secrets.BDL_API_KEY }}
           CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
-        run: python build_lineage.py --leagues NBA,MLB,NHL,EPL,CFB
+        run: python build_lineage.py --leagues ${{ matrix.league }}
 
-      # Upload whatever leagues built successfully even if one source failed —
-      # a broken EPL fetch shouldn't keep fresh NBA data off the site.
-      - name: Upload to Worker KV
+      - name: Upload to Worker KV (${{ matrix.league }})
         if: ${{ !cancelled() }}
         env:
           ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
-        run: python upload_to_worker.py
+        run: python upload_to_worker.py --leagues ${{ matrix.league }}
