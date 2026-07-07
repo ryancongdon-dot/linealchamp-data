@@ -80,6 +80,22 @@ def build_one_league(league: str, as_of: str) -> dict:
     seed_team = getattr(src, "SEED_TEAM", None)
     seed_date = getattr(src, "SEED_DATE", None)
 
+    # If the earliest era's data failed to fetch, the seed team never plays
+    # and the belt can never leave it — the chain stalls on a ghost from the
+    # 1800s. Reseed from the first available game instead, loudly, so the
+    # chain stays alive (it just starts later than the canonical seed).
+    if seed_team:
+        teams_seen = {g.home_id for g in games} | {g.away_id for g in games}
+        if seed_team not in teams_seen:
+            print(
+                f"  ⚠ seed team {seed_team} never appears in the fetched games — "
+                f"the earliest era's source likely failed. Reseeding from the "
+                f"first game's winner so the belt doesn't freeze on a ghost.",
+                flush=True,
+            )
+            seed_team = None
+            seed_date = None
+
     current, changes, events = compute_lineage(
         games, seed_team=seed_team, seed_date=seed_date
     )

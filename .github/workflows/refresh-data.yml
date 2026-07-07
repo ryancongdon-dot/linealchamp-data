@@ -1,18 +1,25 @@
 name: Refresh lineal data
 
-# Rebuilds each league's lineage independently and pushes it to the Worker's
-# KV. Runs nightly (09:17 UTC — after even the latest US West Coast games
-# have finished) and can be run by hand from the Actions tab ("Run workflow").
+# Rebuilds each league's lineage and pushes it to the Worker's KV. Runs
+# nightly (09:17 UTC) and by hand from the Actions tab ("Run workflow").
 #
-# One job per league (matrix), not one job for all leagues, because BDL's
-# free-tier rate limit makes NBA/EPL history fetches slow and unpredictable —
-# a single shared job let NBA alone eat the entire timeout budget before MLB,
-# NHL, or CFB ever got a turn. Matrixing means a slow league can't block the
-# others, and `save-always` on the cache means that even if a job DOES hit
-# its timeout, whatever years it already fetched are kept for next time
-# instead of being discarded and re-fetched from scratch forever.
+# Two job groups:
+#   refresh-bdl   — NBA and EPL, which share ONE balldontlie API key.
+#                   max-parallel: 1 so they never compete for the same rate
+#                   limit (running them concurrently starved EPL into a
+#                   4-hour timeout while NBA got a shredded partial fetch).
+#   refresh-other — MLB, NHL, CFB in parallel (independent sources).
 #
-# Required repository secrets (Settings → Secrets and variables → Actions):
+# Cache is a restore/save PAIR with `if: always()` on the save — NOT the
+# cache action's post-step or the deprecated save-always flag, because
+# neither runs when a job is killed by timeout. This way a timed-out run
+# still banks every year it fetched and the next run resumes from there.
+#
+# The upload script refuses to ship a lineage far smaller than the league's
+# known-good size (MIN_CHANGES in upload_to_worker.py), so an incomplete
+# fetch can never again overwrite good site data.
+#
+# Required repository secrets:
 #   BDL_API_KEY    balldontlie key (NBA + EPL)
 #   CFBD_API_KEY   collegefootballdata.com key (CFB)
 #   ADMIN_SECRET   the Worker's env.ADMIN_SECRET (authorizes the KV upload)
@@ -25,57 +32,83 @@ on:
 concurrency: refresh-data
 
 jobs:
-  refresh:
+  refresh-bdl:
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
-        # NFL is deliberately excluded: its live chain (1933 Bears seed, 538
-        # changes) was built by a separate Wikipedia-scraper pipeline with its
-        # own team codes, and rebuilding it here from pro-football-reference
-        # would overwrite that curated data with mismatched codes. Re-add NFL
-        # once the two pipelines are consolidated in this repo.
-        league: [NBA, MLB, NHL, EPL, CFB]
+        league: [NBA, EPL]
     runs-on: ubuntu-latest
-    # Generous: on a cold cache, BDL's free-tier rate limiting can make NBA's
-    # 79-year history take several hours. Other leagues finish far sooner —
-    # matrixing means they aren't held hostage by NBA's worst case.
-    timeout-minutes: 240
+    timeout-minutes: 180
     defaults:
       run:
         working-directory: linealchamp-data
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
-      # Persist this league's raw-download cache between runs so nightly
-      # runs only refetch the current, still-open season instead of its
-      # entire history. save-always: true is the critical bit — without it,
-      # a run that hits timeout-minutes gets its cache save SKIPPED (GitHub's
-      # default), so a slow league would restart from its seed date on every
-      # single run and might never converge. With it, each run keeps whatever
-      # it fetched, so even a league that needs multiple runs to fully
-      # backfill makes forward progress instead of looping forever.
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         with:
           path: linealchamp-data/cache/${{ matrix.league }}
           key: source-cache-v1-${{ matrix.league }}-${{ github.run_id }}
           restore-keys: |
             source-cache-v1-${{ matrix.league }}-
-          save-always: true
-
       - run: pip install -r requirements.txt
-
       - name: Build lineage (${{ matrix.league }})
         env:
           BDL_API_KEY: ${{ secrets.BDL_API_KEY }}
-          CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
         run: python build_lineage.py --leagues ${{ matrix.league }}
-
       - name: Upload to Worker KV (${{ matrix.league }})
         if: ${{ !cancelled() }}
         env:
           ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
         run: python upload_to_worker.py --leagues ${{ matrix.league }}
+      # Bank fetched data even when the job fails or times out.
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: linealchamp-data/cache/${{ matrix.league }}
+          key: source-cache-v1-${{ matrix.league }}-${{ github.run_id }}
+
+  refresh-other:
+    strategy:
+      fail-fast: false
+      matrix:
+        # NFL is deliberately excluded: its live chain (1933 Bears seed, 538
+        # changes) came from a separate Wikipedia-scraper pipeline with its
+        # own team codes; rebuilding it here would overwrite that curated
+        # data. Re-add once the pipelines are consolidated in this repo.
+        league: [MLB, NHL, CFB]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: linealchamp-data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache/restore@v4
+        with:
+          path: linealchamp-data/cache/${{ matrix.league }}
+          key: source-cache-v1-${{ matrix.league }}-${{ github.run_id }}
+          restore-keys: |
+            source-cache-v1-${{ matrix.league }}-
+      - run: pip install -r requirements.txt
+      - name: Build lineage (${{ matrix.league }})
+        env:
+          CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+        run: python build_lineage.py --leagues ${{ matrix.league }}
+      - name: Upload to Worker KV (${{ matrix.league }})
+        if: ${{ !cancelled() }}
+        env:
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+        run: python upload_to_worker.py --leagues ${{ matrix.league }}
+      # Bank fetched data even when the job fails or times out.
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: linealchamp-data/cache/${{ matrix.league }}
+          key: source-cache-v1-${{ matrix.league }}-${{ github.run_id }}

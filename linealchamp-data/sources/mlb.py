@@ -237,15 +237,23 @@ def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
     # postseason comes from the all-years bundle files).
     if y0 < STATSAPI_FROM_YEAR:
         for y in range(y0, min(y1, STATSAPI_FROM_YEAR - 1) + 1):
+            year_games: list[Game] = []
             try:
                 year_games = _retrosheet_year(y, cache_dir)
-                if year_games:
-                    out.extend(g for g in year_games if start <= g.date[:10] <= end)
-                    print(f"  MLB {y}: {len(year_games)} games", flush=True)
-                else:
-                    print(f"  MLB {y}: empty (file missing or invalid)", flush=True)
             except Exception as exc:
-                print(f"  MLB {y} failed: {exc}", flush=True)
+                print(f"  MLB {y} retrosheet failed: {exc}", flush=True)
+            # Retrosheet has been unreachable from CI runners before — a run
+            # like that produced ZERO pre-2012 games, so the 1871 seed team
+            # never played and the belt never moved. StatsAPI reliably covers
+            # 1901 onward; use it whenever a Retrosheet year comes up empty.
+            if not year_games and y >= 1901:
+                print(f"  MLB {y}: retrosheet empty — falling back to StatsAPI", flush=True)
+                year_games = _statsapi_year(y, cache_dir)
+            if year_games:
+                out.extend(g for g in year_games if start <= g.date[:10] <= end)
+                print(f"  MLB {y}: {len(year_games)} games", flush=True)
+            else:
+                print(f"  MLB {y}: empty (no source could provide it)", flush=True)
 
         for g in _retrosheet_postseason(cache_dir):
             if int(g.date[:4]) < STATSAPI_FROM_YEAR and start <= g.date[:10] <= end:
