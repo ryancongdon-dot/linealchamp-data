@@ -32,6 +32,23 @@ ROOT = Path(__file__).resolve().parent
 OUTPUT = ROOT / "output"
 DEFAULT_BASE = "https://linealchamp-api.ryan-congdon.workers.dev"
 
+# Do-no-harm floor: refuse to overwrite the site's data with a lineage that
+# is drastically smaller than what a healthy build produces. This exists
+# because a build once ran with Retrosheet unreachable, produced an MLB
+# "chain" whose belt never left the 1871 seed team, and shipped it straight
+# over months of good data — the site showed Philadelphia Athletics (1871)
+# as current champion. Values are ~half of each league's known-good change
+# count (NBA 3130, MLB 9059, NHL 3368, CFB 316, NFL 538), so a legitimate
+# rebuild always clears the bar and a gutted one never does.
+MIN_CHANGES = {
+    "NBA": 1500,
+    "NFL": 250,
+    "MLB": 4000,
+    "NHL": 1500,
+    "EPL": 150,
+    "CFB": 150,
+}
+
 
 def _post(base: str, path: str, league: str, body: dict, secret: str) -> bool:
     url = f"{base}{path}?league={league}"
@@ -60,6 +77,9 @@ def main() -> int:
                    help="Only push lineage (small); skip events (large).")
     p.add_argument("--only-events", action="store_true",
                    help="Only push events; skip lineage.")
+    p.add_argument("--force", action="store_true",
+                   help="Bypass the MIN_CHANGES sanity floor (use only when "
+                        "you have verified the small output is correct).")
     args = p.parse_args()
 
     if not args.admin_secret:
@@ -76,6 +96,19 @@ def main() -> int:
                 all_ok = False
             else:
                 body = json.loads(f.read_text())
+                n_changes = len(body.get("changes") or [])
+                floor = MIN_CHANGES.get(L, 50)
+                if n_changes < floor and not args.force:
+                    print(
+                        f"  {L}: REFUSING upload — only {n_changes} changes "
+                        f"(floor {floor}). The source fetch was almost "
+                        f"certainly incomplete; uploading would overwrite "
+                        f"good site data with a gutted chain. Fix the fetch "
+                        f"or pass --force if this is genuinely correct.",
+                        file=sys.stderr,
+                    )
+                    all_ok = False
+                    continue  # don't upload this league's events either
                 ok = _post(args.base_url, "/admin/upload-lineage", L, body, args.admin_secret)
                 all_ok = all_ok and ok
 

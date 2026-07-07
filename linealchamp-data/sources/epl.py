@@ -157,11 +157,24 @@ def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
     y0 = max(1992, int(start[:4]))
     y1 = int(end[:4])
     out: list[Game] = []
+    consecutive_failures = 0
     for season in range(y0, y1 + 1):
         try:
             items = _fetch_season(season, cache_dir)
+            consecutive_failures = 0
         except Exception as exc:
             print(f"  EPL season {season} fetch failed: {exc}", flush=True)
+            consecutive_failures += 1
+            # Same circuit breaker as NBA: when the shared BDL rate limit has
+            # exhausted retries several seasons running, stop instead of
+            # cycling backoff for hours. Cached seasons persist across runs.
+            if consecutive_failures >= 3:
+                print(
+                    f"  EPL: {consecutive_failures} consecutive season failures — "
+                    f"aborting this run. Cached progress is kept; the next run resumes.",
+                    flush=True,
+                )
+                break
             continue
 
         before = len(out)

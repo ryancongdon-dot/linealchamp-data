@@ -115,14 +115,27 @@ def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
     y0 = int(start[:4])
     y1 = int(end[:4])
     out: list[Game] = []
+    consecutive_failures = 0
     for y in range(y0, y1 + 1):
         window_start = max(start, f"{y}-01-01")
         window_end = min(end, f"{y}-12-31")
         for postseason in (False, True):
             try:
                 items = _fetch_window(window_start, window_end, postseason, cache_dir)
+                consecutive_failures = 0
             except Exception as exc:
-                print(f"  NBA {y} {'post' if postseason else 'reg'}: {exc}")
+                print(f"  NBA {y} {'post' if postseason else 'reg'}: {exc}", flush=True)
+                consecutive_failures += 1
+                # Once the rate limit has beaten us several windows in a row it
+                # will beat us on every remaining one too — stop burning hours.
+                # Everything fetched so far is cached; the next run resumes here.
+                if consecutive_failures >= 4:
+                    print(
+                        f"  NBA: {consecutive_failures} consecutive window failures — "
+                        f"aborting this run. Cached progress is kept; the next run resumes.",
+                        flush=True,
+                    )
+                    return out
                 continue
             for it in items:
                 home_team = it.get("home_team") or {}
