@@ -38,6 +38,7 @@ class Change:
     to_team: str
     score: Optional[str] = None
     seed: bool = False
+    lapsed: bool = False  # belt moved via inactivity rule, not a head-to-head loss
 
     def to_json(self) -> dict:
         out = {
@@ -50,6 +51,8 @@ class Change:
             out["score"] = self.score
         if self.seed:
             out["seed"] = True
+        if self.lapsed:
+            out["lapsed"] = True
         return out
 
 
@@ -75,6 +78,28 @@ class Event:
             "result": self.result,
             "change": self.change,
         }
+
+
+# Belt auto-transfers to the next active winner when the holder has been
+# inactive longer than this. One year cleanly separates a between-seasons gap
+# (months) from a franchise that has genuinely stopped playing.
+LAPSE_DAYS = 365
+
+
+def _to_dt(s: Optional[str]) -> Optional["datetime"]:
+    """Parse an ISO date/datetime (with or without time/Z) to a naive UTC
+    datetime for day-gap math. Returns None if unparseable."""
+    if not s:
+        return None
+    try:
+        txt = str(s).replace("Z", "+00:00")
+        dt = datetime.fromisoformat(txt if "T" in txt else txt + "T00:00:00+00:00")
+        return dt.replace(tzinfo=None)
+    except Exception:
+        try:
+            return datetime.fromisoformat(str(s)[:10])
+        except Exception:
+            return None
 
 
 def norm(s: Optional[str]) -> str:
@@ -151,12 +176,45 @@ def compute_lineage(
     if champ is None:
         return None, [], []
 
+    # Track when the holder last actually played. If the belt sits with a team
+    # that stops playing (a folded franchise, a pre-modern seed whose era's
+    # data is missing), it must eventually pass to whoever is still active —
+    # otherwise the whole chain freezes on a ghost like the 1920s Quebec
+    # Bulldogs. This mirrors the Worker's JS rule; without it the offline
+    # rebuild produced ~31 NHL changes ending on a defunct team.
+    champ_last = _to_dt(seed_date) or _to_dt(games[0].date if games else None)
+
     for g in games:
         w = winner(g)
         if w is None:
             continue
         h_id, a_id = g.home_id, g.away_id
-        if champ != h_id and champ != a_id:
+        champ_plays = champ == h_id or champ == a_id
+        gd = _to_dt(g.date)
+
+        # Inactivity lapse: the holder hasn't appeared in over a year and is
+        # not in this game, so the belt vacates to this game's winner. Not a
+        # head-to-head title loss, so it's flagged lapsed and records no event.
+        if (
+            not champ_plays
+            and champ_last is not None
+            and gd is not None
+            and (gd - champ_last).days > LAPSE_DAYS
+        ):
+            changes.append(
+                Change(
+                    date=_iso(g.date),
+                    gameId=g.id,
+                    from_team=champ,
+                    to_team=w,
+                    lapsed=True,
+                )
+            )
+            champ = w
+            champ_last = gd
+            continue
+
+        if not champ_plays:
             continue
 
         opp = a_id if champ == h_id else h_id
@@ -164,6 +222,7 @@ def compute_lineage(
         opp_score = g.away_score if champ == h_id else g.home_score
         champ_won = w == champ
         change = not champ_won
+        champ_last = gd  # the holder just played
 
         events.append(
             Event(
@@ -189,6 +248,7 @@ def compute_lineage(
                 )
             )
             champ = w
+            champ_last = gd  # the new holder's clock starts at this game
 
     return champ, changes, events
 
