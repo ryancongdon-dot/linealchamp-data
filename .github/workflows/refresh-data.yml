@@ -1,23 +1,19 @@
 name: Refresh lineal data
 
-# Rebuilds each league's lineage and pushes it to the Worker's KV. Runs
-# nightly (09:17 UTC) and by hand from the Actions tab ("Run workflow").
+# Keeps each league current by INCREMENTAL catch-up (update_recent.py): read
+# the chain already on the Worker, fetch only the games since the last change,
+# extend it, re-upload. It does NOT re-download decades of history — past games
+# never change, so the old full-rebuild was pure waste and, for the
+# rate-limited EPL endpoint, is what dragged runs to 3h and drained the monthly
+# Actions budget.
 #
-# Two job groups:
-#   refresh-bdl   — NBA and EPL, which share ONE balldontlie API key.
-#                   max-parallel: 1 so they never compete for the same rate
-#                   limit (running them concurrently starved EPL into a
-#                   4-hour timeout while NBA got a shredded partial fetch).
-#   refresh-other — MLB, NHL, CFB in parallel (independent sources).
+# A full rebuild from a league's seed year is a separate, deliberate action:
+# run build_lineage.py + upload_to_worker.py by hand (locally or via the
+# Backfill workflow) only for a first backfill or a data correction.
 #
-# Cache is a restore/save PAIR with `if: always()` on the save — NOT the
-# cache action's post-step or the deprecated save-always flag, because
-# neither runs when a job is killed by timeout. This way a timed-out run
-# still banks every year it fetched and the next run resumes from there.
-#
-# The upload script refuses to ship a lineage far smaller than the league's
-# known-good size (MIN_CHANGES in upload_to_worker.py), so an incomplete
-# fetch can never again overwrite good site data.
+# WEEKLY, not nightly: day-to-day currency already comes free from the Worker's
+# own Cloudflare cron; this only needs to catch completed seasons. 2,000 free
+# Actions minutes/month is plenty for a weekly incremental run.
 #
 # Required repository secrets:
 #   BDL_API_KEY    balldontlie key (NBA + EPL)
@@ -26,12 +22,6 @@ name: Refresh lineal data
 
 on:
   workflow_dispatch:
-  # WEEKLY, not nightly. This account has 2,000 free Actions minutes/month;
-  # a nightly full rebuild (especially EPL, which the rate-limited balldontlie
-  # endpoint drags out for hours) blew the entire budget in ~2 weeks. Day-to-day
-  # currency is already handled for free by the Worker's own Cloudflare cron
-  # (today's games for the current champ); this offline rebuild only needs to
-  # catch completed seasons and corrections, so once a week on Monday is plenty.
   schedule:
     - cron: "17 9 * * 1"
 
@@ -41,15 +31,10 @@ jobs:
   refresh-bdl:
     strategy:
       fail-fast: false
-      max-parallel: 1
+      max-parallel: 1  # NBA and EPL share one balldontlie key — don't compete
       matrix:
         league: [NBA, EPL]
     runs-on: ubuntu-latest
-    # Hard budget cap. A warm cache finishes in ~2 min; a cold one is far
-    # longer, but letting EPL grind for hours against the rate limit is exactly
-    # what drained the monthly minutes. Cap it: whatever it fetches is banked
-    # to the cache (save step runs on timeout), so a capped run still makes
-    # forward progress and the next weekly run resumes where it left off.
     timeout-minutes: 60
     defaults:
       run:
@@ -66,16 +51,13 @@ jobs:
           restore-keys: |
             source-cache-v1-${{ matrix.league }}-
       - run: pip install -r requirements.txt
-      - name: Build lineage (${{ matrix.league }})
+      - name: Incremental update (${{ matrix.league }})
         env:
           BDL_API_KEY: ${{ secrets.BDL_API_KEY }}
-        run: python build_lineage.py --leagues ${{ matrix.league }}
-      - name: Upload to Worker KV (${{ matrix.league }})
-        if: ${{ !cancelled() }}
-        env:
           ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
-        run: python upload_to_worker.py --leagues ${{ matrix.league }}
-      # Bank fetched data even when the job fails or times out.
+        run: python update_recent.py --leagues ${{ matrix.league }}
+      # Bank the recent-season cache even on timeout, so a capped run still
+      # makes forward progress.
       - uses: actions/cache/save@v4
         if: always()
         with:
@@ -88,12 +70,10 @@ jobs:
       matrix:
         # NFL is deliberately excluded: its live chain (1933 Bears seed, 538
         # changes) came from a separate Wikipedia-scraper pipeline with its
-        # own team codes; rebuilding it here would overwrite that curated
-        # data. Re-add once the pipelines are consolidated in this repo.
+        # own team codes; catching it up here would need that pipeline's
+        # source. Re-add once the pipelines are consolidated in this repo.
         league: [MLB, NHL, CFB]
     runs-on: ubuntu-latest
-    # These three have fast, well-behaved sources and finish in minutes even
-    # cold; a tight cap just guards against a hung request eating the budget.
     timeout-minutes: 30
     defaults:
       run:
@@ -110,16 +90,11 @@ jobs:
           restore-keys: |
             source-cache-v1-${{ matrix.league }}-
       - run: pip install -r requirements.txt
-      - name: Build lineage (${{ matrix.league }})
+      - name: Incremental update (${{ matrix.league }})
         env:
           CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
-        run: python build_lineage.py --leagues ${{ matrix.league }}
-      - name: Upload to Worker KV (${{ matrix.league }})
-        if: ${{ !cancelled() }}
-        env:
           ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
-        run: python upload_to_worker.py --leagues ${{ matrix.league }}
-      # Bank fetched data even when the job fails or times out.
+        run: python update_recent.py --leagues ${{ matrix.league }}
       - uses: actions/cache/save@v4
         if: always()
         with:
