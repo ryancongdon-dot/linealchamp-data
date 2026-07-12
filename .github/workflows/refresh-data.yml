@@ -26,8 +26,14 @@ name: Refresh lineal data
 
 on:
   workflow_dispatch:
+  # WEEKLY, not nightly. This account has 2,000 free Actions minutes/month;
+  # a nightly full rebuild (especially EPL, which the rate-limited balldontlie
+  # endpoint drags out for hours) blew the entire budget in ~2 weeks. Day-to-day
+  # currency is already handled for free by the Worker's own Cloudflare cron
+  # (today's games for the current champ); this offline rebuild only needs to
+  # catch completed seasons and corrections, so once a week on Monday is plenty.
   schedule:
-    - cron: "17 9 * * *"
+    - cron: "17 9 * * 1"
 
 concurrency: refresh-data
 
@@ -39,7 +45,12 @@ jobs:
       matrix:
         league: [NBA, EPL]
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    # Hard budget cap. A warm cache finishes in ~2 min; a cold one is far
+    # longer, but letting EPL grind for hours against the rate limit is exactly
+    # what drained the monthly minutes. Cap it: whatever it fetches is banked
+    # to the cache (save step runs on timeout), so a capped run still makes
+    # forward progress and the next weekly run resumes where it left off.
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: linealchamp-data
@@ -81,7 +92,9 @@ jobs:
         # data. Re-add once the pipelines are consolidated in this repo.
         league: [MLB, NHL, CFB]
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # These three have fast, well-behaved sources and finish in minutes even
+    # cold; a tight cap just guards against a hung request eating the budget.
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: linealchamp-data
