@@ -45,10 +45,12 @@ def _post(base: str, path: str, params: dict, body: dict, secret: str) -> bool:
 
 def events_from_changes(changes: list[dict]) -> list[dict]:
     """Every real transfer is a title fight the old champ lost. Vacancy and
-    seed entries (from == null) aren't fights, so they carry no event."""
+    seed entries (from == null) aren't fights, so they carry no event.
+    Re-establishment entries (from == 'VACANT') aren't a title defense either —
+    nobody lost the belt — so they carry no event."""
     out = []
     for i, c in enumerate(changes):
-        if not c.get("from") or c.get("to") == "VACANT":
+        if not c.get("from") or c.get("from") == "VACANT" or c.get("to") == "VACANT":
             continue
         out.append({
             "date": c["date"],
