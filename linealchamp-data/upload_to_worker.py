@@ -111,6 +111,19 @@ def main() -> int:
                     continue  # don't upload this league's events either
                 ok = _post(args.base_url, "/admin/upload-lineage", L, body, args.admin_secret)
                 all_ok = all_ok and ok
+                # If the build shipped a display-name map, push it too so the
+                # site shows real club names, not normalized codes.
+                brand = body.get("brand")
+                if ok and brand:
+                    r = requests.post(
+                        f"{args.base_url}/admin/brand/bulk",
+                        headers={"x-admin-secret": args.admin_secret,
+                                 "content-type": "application/json"},
+                        data=json.dumps({"league": L, "map": brand}),
+                        timeout=120,
+                    )
+                    print(f"  {L:4} {'✓' if r.ok else '✗'} /admin/brand/bulk  "
+                          f"{r.status_code}  {r.text[:80]}")
 
         if not args.skip_events:
             f = OUTPUT / f"events-{L}.json"

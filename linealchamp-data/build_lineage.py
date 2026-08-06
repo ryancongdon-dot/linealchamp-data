@@ -108,6 +108,12 @@ def build_one_league(league: str, as_of: str) -> dict:
         "currentChamp": current,
         "changes": [c.to_json() for c in changes],
     }
+    # A source may supply a display-name map (e.g. EPL: "MANUNITED" ->
+    # "Man United") so the site doesn't show raw normalized codes.
+    if hasattr(src, "team_brand"):
+        brand = src.team_brand()
+        if brand:
+            lineage_payload["brand"] = brand
     events_payload = {
         "league": league,
         "asOfDate": as_of,
