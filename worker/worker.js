@@ -1383,33 +1383,18 @@ const PUBLIC_HTML = `<!doctype html>
 
   // Boxing weight-class registry. ready:true means we have lineage data
   // in KV; ready:false renders a "Coming soon" placeholder.
+  // The classic eight divisions — the only ones we carry complete lineages
+  // for. (Super/tweener divisions and women's divisions were placeholders with
+  // no data and were removed rather than shown as permanent "coming soon".)
   var WEIGHT_CLASSES = [
-    { code: 'BOXHW',   label: 'Heavyweight',         ready: true,  group: "men's" },
-    { code: 'BOXBR',   label: 'Bridgerweight',       ready: false, group: "men's" },
-    { code: 'BOXCW',   label: 'Cruiserweight',       ready: false, group: "men's" },
-    { code: 'BOXLHW',  label: 'Light Heavyweight',   ready: true,  group: "men's" },
-    { code: 'BOXSMW',  label: 'Super Middleweight',  ready: false, group: "men's" },
-    { code: 'BOXMW',   label: 'Middleweight',        ready: true,  group: "men's" },
-    { code: 'BOXSWW',  label: 'Super Welterweight',  ready: false, group: "men's" },
-    { code: 'BOXWW',   label: 'Welterweight',        ready: true,  group: "men's" },
-    { code: 'BOXSLW',  label: 'Super Lightweight',   ready: false, group: "men's" },
-    { code: 'BOXLW',   label: 'Lightweight',         ready: true,  group: "men's" },
-    { code: 'BOXSFW',  label: 'Super Featherweight', ready: false, group: "men's" },
-    { code: 'BOXFW',   label: 'Featherweight',       ready: true,  group: "men's" },
-    { code: 'BOXSBW',  label: 'Super Bantamweight',  ready: false, group: "men's" },
-    { code: 'BOXBW',   label: 'Bantamweight',        ready: true,  group: "men's" },
-    { code: 'BOXSFLW', label: 'Super Flyweight',     ready: false, group: "men's" },
-    { code: 'BOXFLW',  label: 'Flyweight',           ready: true,  group: "men's" },
-    { code: 'BOXLFLW', label: 'Light Flyweight',     ready: false, group: "men's" },
-    { code: 'BOXMSW',  label: 'Minimumweight',       ready: false, group: "men's" },
-    { code: 'BOXWHW',  label: 'Heavyweight',         ready: false, group: "women's" },
-    { code: 'BOXWLHW', label: 'Light Heavyweight',   ready: false, group: "women's" },
-    { code: 'BOXWMW',  label: 'Middleweight',        ready: false, group: "women's" },
-    { code: 'BOXWLMW', label: 'Light Middleweight',  ready: false, group: "women's" },
-    { code: 'BOXWWW',  label: 'Welterweight',        ready: false, group: "women's" },
-    { code: 'BOXWLW',  label: 'Lightweight',         ready: false, group: "women's" },
-    { code: 'BOXWFW',  label: 'Featherweight',       ready: false, group: "women's" },
-    { code: 'BOXWFLW', label: 'Flyweight',           ready: false, group: "women's" },
+    { code: 'BOXHW',   label: 'Heavyweight',       ready: true, group: "men's" },
+    { code: 'BOXLHW',  label: 'Light Heavyweight', ready: true, group: "men's" },
+    { code: 'BOXMW',   label: 'Middleweight',      ready: true, group: "men's" },
+    { code: 'BOXWW',   label: 'Welterweight',      ready: true, group: "men's" },
+    { code: 'BOXLW',   label: 'Lightweight',       ready: true, group: "men's" },
+    { code: 'BOXFW',   label: 'Featherweight',     ready: true, group: "men's" },
+    { code: 'BOXBW',   label: 'Bantamweight',      ready: true, group: "men's" },
+    { code: 'BOXFLW',  label: 'Flyweight',         ready: true, group: "men's" },
   ];
   var WC_BY_CODE = {}; WEIGHT_CLASSES.forEach(function(w){ WC_BY_CODE[w.code] = w; });
   function isBoxingCode(c){ return !!WC_BY_CODE[c]; }
@@ -1446,23 +1431,17 @@ const PUBLIC_HTML = `<!doctype html>
     var subHtml = '';
     if (isBoxingActive()) {
       var active = activeWeightClass();
-      function pills(group){
-        return WEIGHT_CLASSES
-          .filter(function(w){ return w.group === group; })
-          .map(function(w){
-            var cls = [];
-            if (w.code === active) cls.push('active');
-            if (!w.ready) cls.push('soon');
-            return '<button class="'+cls.join(' ')+'" data-l="'+w.code+'">'+w.label
-              + (w.ready ? '' : '<span class="soon-tag">soon</span>')
-              + '</button>';
-          }).join('');
-      }
+      var pills = WEIGHT_CLASSES.map(function(w){
+        var cls = [];
+        if (w.code === active) cls.push('active');
+        if (!w.ready) cls.push('soon');
+        return '<button class="'+cls.join(' ')+'" data-l="'+w.code+'">'+w.label
+          + (w.ready ? '' : '<span class="soon-tag">soon</span>')
+          + '</button>';
+      }).join('');
       subHtml =
-        '<div class="wc-group"><div class="wc-heading">Men’s divisions</div>'
-        + '<div class="wc-row">' + pills("men's") + '</div></div>'
-        + '<div class="wc-group"><div class="wc-heading">Women’s divisions</div>'
-        + '<div class="wc-row">' + pills("women's") + '</div></div>'
+        '<div class="wc-group"><div class="wc-heading">Divisions</div>'
+        + '<div class="wc-row">' + pills + '</div></div>'
         + '<div class="wc-lore">'
         + '<button id="boxingLoreBtn" class="lore-btn">📜 The Lore of the Lineal Championship</button>'
         + '</div>';
