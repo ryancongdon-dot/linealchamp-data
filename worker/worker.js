@@ -982,6 +982,9 @@ const PUBLIC_HTML = `<!doctype html>
 <meta charset="utf-8"/>
 <title>The Lineal Champ</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #0b0d12;
@@ -1185,53 +1188,141 @@ const PUBLIC_HTML = `<!doctype html>
   footer { margin-top: 32px; color: var(--text-dim); font-size: 12px; text-align: center; }
   footer a { color: var(--text-dim); }
 
-  /* Landing page */
+  /* Landing / tracker show-hide */
   .landing { display: none; }
   .landing.on { display: block; }
   .tracker { display: none; }
   .tracker.on { display: block; }
-  .land-hero { padding: 72px 24px 48px; text-align: center; }
-  .land-hero .eyebrow { font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
-    color: var(--text-dim); margin-bottom: 12px; }
-  .land-hero h1 { margin: 0 0 18px; font-size: 64px; line-height: 1.02;
-    letter-spacing: -0.04em; font-weight: 800; }
-  .land-hero h1 .accent { background: linear-gradient(135deg, #facc15, #f59e0b);
-    -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .land-hero .tagline { color: var(--text-dim); font-size: 18px; max-width: 640px;
-    margin: 0 auto 28px; line-height: 1.55; }
-  .land-pick { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
-  .land-pick a { display: inline-flex; align-items: center; gap: 8px;
-    padding: 12px 20px; background: var(--bg-elev); border: 1px solid var(--border);
-    border-radius: 999px; color: var(--text); text-decoration: none; font-weight: 600;
-    font-size: 15px; transition: border-color 0.15s, transform 0.05s; }
-  .land-pick a:hover { border-color: var(--accent); }
-  .land-pick a:active { transform: scale(0.97); }
-  .land-section { max-width: 720px; margin: 60px auto; padding: 0 8px; }
-  .land-section h2 { font-size: 28px; margin: 0 0 14px; letter-spacing: -0.02em; }
-  .land-section p { line-height: 1.7; font-size: 16px; color: var(--text); margin: 0 0 16px; }
-  .land-section p.dim { color: var(--text-dim); }
-  .land-quote { border-left: 3px solid #f59e0b; padding: 4px 0 4px 18px;
-    margin: 24px 0; font-style: italic; color: var(--text); }
-  .land-quote .who { display: block; margin-top: 8px; font-style: normal;
-    font-size: 13px; color: var(--text-dim); letter-spacing: 0.04em; }
-  .land-chain { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 8px; align-items: center; }
-  .land-chain span.name { background: var(--bg-elev); border: 1px solid var(--border);
-    padding: 6px 12px; border-radius: 8px; font-weight: 600; font-size: 14px; }
-  .land-chain span.arrow { color: var(--text-dim); }
-  .land-coverage { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 10px; margin-top: 14px; }
-  .land-coverage .row { background: var(--bg-elev); border: 1px solid var(--border);
-    padding: 12px 14px; border-radius: 10px; }
-  .land-coverage .row b { display: block; font-size: 15px; margin-bottom: 2px; }
-  .land-coverage .row span { color: var(--text-dim); font-size: 12px; }
-  .land-cta { text-align: center; margin: 56px 0 24px; }
-  .land-cta .land-pick { margin-top: 18px; }
-  @media (max-width: 600px) {
-    .land-hero { padding: 48px 16px 32px; }
-    .land-hero h1 { font-size: 42px; }
-    .land-hero .tagline { font-size: 16px; }
-    .land-section { margin: 40px auto; }
-    .land-section h2 { font-size: 22px; }
+  /* The redesigned landing (below) runs full-bleed: neutralize the wrap's
+     max-width/padding and hide the shared footer while it is showing. */
+  .wrap:has(.landing.on) { max-width: none; padding: 0; }
+  .landing.on ~ footer { display: none; }
+  body:has(.landing.on) { background: #191614; }
+
+  /* ── Landing page — "Fight Night" (Classical design system) ── */
+  .lc {
+    --font-heading: "Cormorant Garamond", Georgia, serif;
+    --font-body: "Lora", Georgia, serif;
+    --accent-100:#fff3e4; --accent-200:#ffe3bf; --accent-300:#facb8d;
+    --accent-400:#e1ad66; --accent-500:#c28d41; --accent-600:#a06f24; --accent-700:#7d5411;
+    --n-100:#f8f4f4; --n-200:#eae7e7; --n-300:#d7d3d3; --n-400:#bab6b6;
+    --n-500:#9b9797; --n-600:#7d7979;
+    --ground:#191614; --band:#120f0e; --display:#faf6ef;
+    --hair:rgba(230,225,215,0.16);
+    --surface:#eae9e9; --surface-hair:rgba(32,31,29,0.16);
+    --sp3:13.8px; --sp4:18.4px; --sp6:27.6px; --sp8:36.8px; --r:4px;
+    max-width:1280px; margin:0 auto; background:var(--ground); color:var(--n-200);
+    font-family:var(--font-body); -webkit-font-smoothing:antialiased;
+  }
+  .lc * { box-sizing:border-box; }
+  .lc a { text-decoration:none; color:inherit; }
+  .lc :focus-visible { outline:2px solid var(--accent-400); outline-offset:2px; }
+  .lc-header { display:flex; align-items:center; justify-content:space-between;
+    padding:18px 56px; border-bottom:1px solid var(--hair); }
+  .lc-brand { display:flex; align-items:center; gap:12px; }
+  .lc-mark { width:20px; height:20px; border:1px solid var(--accent-400); border-radius:50%;
+    box-shadow:inset 0 0 0 3px var(--ground), inset 0 0 0 4px rgba(225,173,102,.55); }
+  .lc-wordmark { font-family:var(--font-heading); font-size:19px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--n-100); }
+  .lc-nav { display:flex; gap:28px; font-size:13px; letter-spacing:.09em; text-transform:uppercase; }
+  .lc-nav a { color:var(--n-400); transition:color .15s ease; }
+  .lc-nav a:hover { color:var(--accent-300); }
+  .lc-nav a.lc-nav-cta { color:var(--accent-300); }
+  .lc-nav a.lc-nav-cta:hover { color:var(--accent-100); }
+  .lc-hero { padding:76px 56px 60px; text-align:center; position:relative; overflow:hidden; }
+  .lc-glow { position:absolute; top:-140px; left:50%; transform:translateX(-50%);
+    width:820px; height:420px; pointer-events:none;
+    background:radial-gradient(ellipse at center, rgba(194,141,65,.16), transparent 62%); }
+  .lc-hero-inner { position:relative; display:flex; flex-direction:column; align-items:center; gap:var(--sp6); }
+  .lc-medallion { width:86px; height:86px; border:1px solid var(--accent-500); border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:inset 0 0 0 1px rgba(225,173,102,.25), inset 0 0 0 7px var(--ground), inset 0 0 0 8px rgba(225,173,102,.45); }
+  .lc-medallion span { font-family:var(--font-heading); font-size:26px; color:var(--accent-300); letter-spacing:.02em; font-feature-settings:'tnum'; }
+  .lc-kicker { font-size:12px; letter-spacing:.26em; text-transform:uppercase; color:var(--accent-300); }
+  .lc-h1 { margin:0; font-family:var(--font-heading); font-weight:400; font-size:104px;
+    line-height:.98; letter-spacing:-.015em; color:var(--display); max-width:15ch; text-wrap:balance; }
+  .lc-lede { margin:0; max-width:62ch; font-size:19px; line-height:1.7; color:var(--n-300); text-wrap:pretty; }
+  .lc-picklabel { display:flex; align-items:center; gap:var(--sp3); margin-top:9px; }
+  .lc-picklabel span:first-child, .lc-picklabel span:last-child { width:60px; height:1px; background:rgba(225,173,102,.5); }
+  .lc-picklabel .t { font-size:12px; letter-spacing:.2em; text-transform:uppercase; color:var(--n-500); }
+  .lc-pick { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; max-width:900px; }
+  .lc-btn { padding:11px 26px; border:1px solid rgba(225,173,102,.55); border-radius:var(--r);
+    color:var(--accent-200); font-size:14px; letter-spacing:.13em; text-transform:uppercase;
+    transition:background-color .15s ease, border-color .15s ease, color .15s ease; }
+  .lc-btn:hover { background:rgba(194,141,65,.14); border-color:var(--accent-300); color:var(--accent-100); }
+  .lc-btn--boxing { border-color:var(--accent-400); background:rgba(194,141,65,.16); color:var(--accent-100); }
+  .lc-btn--boxing:hover { background:rgba(194,141,65,.26); border-color:var(--accent-300); }
+  .lc-rule { height:1px; background:var(--hair); }
+  .lc-explainer { display:grid; grid-template-columns:1fr 1fr 1fr; padding:56px 56px 52px; }
+  .lc-col { padding-right:40px; }
+  .lc-col + .lc-col { padding:0 40px; border-left:1px solid var(--hair); }
+  .lc-col + .lc-col + .lc-col { padding:0 0 0 40px; }
+  .lc-numeral { font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--accent-300); margin-bottom:14px; font-feature-settings:'tnum'; }
+  .lc-h3 { margin:0 0 12px; font-family:var(--font-heading); font-weight:500; font-size:30px; line-height:1.15; color:var(--display); }
+  .lc-body { margin:0; font-size:15px; line-height:1.75; color:var(--n-400); text-align:justify; hyphens:auto; }
+  .lc-line { padding:56px; }
+  .lc-line-head { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:var(--sp6); }
+  .lc-line-head h2 { margin:0; font-family:var(--font-heading); font-weight:400; font-size:44px; color:var(--display); }
+  .lc-line-meta { font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--n-500); font-feature-settings:'tnum'; }
+  .lc-portraits { display:grid; grid-template-columns:repeat(7,1fr); gap:18px; }
+  .lc-fig { display:flex; flex-direction:column; gap:10px; }
+  .lc-plate { padding:6px; filter:sepia(.22) saturate(.82) contrast(1.05);
+    border:6px solid var(--surface); outline:1px solid var(--surface-hair); background:var(--surface); }
+  .lc-plate img { display:block; width:100%; aspect-ratio:3/4; object-fit:cover; }
+  .lc-fig .nm { font-family:var(--font-heading); font-size:17px; color:var(--display); line-height:1.2; }
+  .lc-fig .yr { font-size:12px; letter-spacing:.12em; color:var(--accent-300); font-feature-settings:'tnum'; }
+  .lc-line-foot { display:flex; align-items:center; margin-top:22px; }
+  .lc-line-foot span:first-child { flex:1; height:1px; background:linear-gradient(90deg, rgba(225,173,102,.15), rgba(225,173,102,.6)); }
+  .lc-line-foot .note { padding-left:14px; font-size:13px; color:var(--n-500); font-style:italic; }
+  .lc-quotewrap { padding:0 56px 56px; }
+  .lc-quote { border-top:1px solid var(--hair); border-bottom:1px solid var(--hair); padding:44px 0; text-align:center; }
+  .lc-quote p { margin:0 auto; max-width:24ch; font-family:var(--font-heading); font-weight:300; font-style:italic; font-size:48px; line-height:1.2; color:var(--display); }
+  .lc-quote .attr { margin-top:18px; font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--accent-300); }
+  .lc-cover { padding:0 56px 56px; }
+  .lc-cover h2 { margin:0 0 var(--sp4); font-family:var(--font-heading); font-weight:400; font-size:44px; color:var(--display); }
+  .lc-cover-grid { display:grid; grid-template-columns:repeat(2,1fr); column-gap:56px; }
+  .lc-cover-row { display:flex; justify-content:space-between; align-items:baseline; padding:14px 0; border-bottom:1px solid var(--hair); }
+  .lc-cover-row .lg { font-family:var(--font-heading); font-size:22px; color:var(--display); }
+  .lc-cover-row .since { font-size:13px; color:var(--n-500); font-feature-settings:'tnum'; }
+  .lc-cover-row .vac { font-size:14px; color:var(--n-500); font-style:italic; }
+  .lc-cover-row .why { font-size:13px; letter-spacing:.12em; text-transform:uppercase; color:var(--accent-300); }
+  .lc-band { background:var(--band); padding:52px 56px 60px; border-top:1px solid var(--hair);
+    display:flex; align-items:center; justify-content:space-between; gap:var(--sp8); }
+  .lc-band .txt { max-width:52ch; }
+  .lc-band h2 { margin:0 0 10px; font-family:var(--font-heading); font-weight:400; font-size:40px; color:var(--display); }
+  .lc-band p { margin:0; font-size:16px; line-height:1.7; color:var(--n-400); }
+  .lc-cta { flex-shrink:0; padding:16px 34px; border:1px solid var(--accent-400); border-radius:var(--r);
+    color:var(--accent-100); font-size:15px; letter-spacing:.14em; text-transform:uppercase;
+    transition:background-color .15s ease, border-color .15s ease; }
+  .lc-cta:hover { background:rgba(194,141,65,.2); border-color:var(--accent-300); }
+  .lc-footer { padding:22px 56px; border-top:1px solid var(--hair); display:flex; justify-content:space-between; font-size:12px; color:var(--n-600); letter-spacing:.08em; }
+  .lc-footer a { color:var(--n-600); }
+  .lc-footer .r { display:flex; gap:20px; }
+  @media (max-width:600px) {
+    .lc-header { padding:14px 20px; }
+    .lc-nav { display:none; }
+    .lc-hero { padding:40px 20px 36px; }
+    .lc-hero-inner { gap:20px; }
+    .lc-medallion { width:66px; height:66px; box-shadow:inset 0 0 0 1px rgba(225,173,102,.25), inset 0 0 0 5px var(--ground), inset 0 0 0 6px rgba(225,173,102,.45); }
+    .lc-medallion span { font-size:21px; }
+    .lc-h1 { font-size:50px; line-height:1; }
+    .lc-lede { font-size:16px; line-height:1.65; }
+    .lc-pick { display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%; }
+    .lc-btn { padding:14px 0; text-align:center; font-size:13px; letter-spacing:.12em; }
+    .lc-btn--boxing { grid-column:1 / -1; }
+    .lc-explainer { grid-template-columns:1fr; padding:36px 20px; gap:32px; }
+    .lc-col, .lc-col + .lc-col, .lc-col + .lc-col + .lc-col { padding:0; border-left:0; }
+    .lc-line { padding:36px 20px; }
+    .lc-portraits { grid-template-columns:repeat(3,1fr); gap:12px; }
+    .lc-line-head { flex-direction:column; align-items:flex-start; gap:8px; }
+    .lc-line-head h2 { font-size:32px; }
+    .lc-quotewrap { padding:0 20px 36px; }
+    .lc-quote p { font-size:30px; }
+    .lc-cover { padding:0 20px 36px; }
+    .lc-cover-grid { grid-template-columns:1fr; column-gap:0; }
+    .lc-cover h2, .lc-band h2 { font-size:30px; }
+    .lc-band { flex-direction:column; align-items:flex-start; padding:36px 20px 44px; gap:24px; }
+    .lc-footer { padding:18px 20px; flex-direction:column; gap:10px; }
   }
 
   @media (max-width: 600px) {
@@ -1243,78 +1334,116 @@ const PUBLIC_HTML = `<!doctype html>
 </head>
 <body>
 <div class="wrap">
-  <div class="landing" id="landing">
-    <div class="land-hero">
-      <div class="eyebrow">The man who beat the man</div>
-      <h1>The <span class="accent">Lineal</span> Champ</h1>
-      <div class="tagline">A boxing-style championship belt for every major league. The belt only changes hands when the holder loses — never by committee, never by tournament seed, never by sanctioning body. Just the ring.</div>
-      <div class="land-pick" id="landPick"></div>
-    </div>
+  <div class="landing" id="landing"><div class="lc">
 
-    <div class="land-section">
-      <h2>What is a lineal champion?</h2>
-      <p>In boxing, the <b>lineal</b> championship is the one passed down in an unbroken chain from "the man who beat the man." A title only changes hands when the reigning champion is defeated — not when they're stripped, not when they vacate, not when an alphabet organization votes a new champion into existence.</p>
-      <p>If you want to be the lineal champ, you don't win a tournament. You go beat the guy who beat the guy.</p>
-      <div class="land-quote">
-        "To be the man, you've got to beat the man."
-        <span class="who">— Ric Flair, paraphrasing roughly a hundred years of boxing tradition</span>
+    <header class="lc-header">
+      <div class="lc-brand"><span class="lc-mark"></span><span class="lc-wordmark">The Lineal Champ</span></div>
+      <nav class="lc-nav">
+        <a href="#story">The Rule</a>
+        <a href="#line">The Line</a>
+        <a href="#cover">Coverage</a>
+        <a class="lc-nav-cta" href="?l=BOXHW">Boxing &rarr;</a>
+      </nav>
+    </header>
+
+    <section class="lc-hero">
+      <div class="lc-glow"></div>
+      <div class="lc-hero-inner">
+        <div class="lc-medallion"><span>1882</span></div>
+        <div class="lc-kicker">The man who beat the man</div>
+        <h1 class="lc-h1">One belt. Every game. No committee.</h1>
+        <p class="lc-lede">In boxing, the lineal title only moves when the champion is beaten. We took that rule and ran it through every game ever played in six leagues — first game to last night. Whoever is holding the belt when the music stops is the champion, and nobody voted for them.</p>
+        <div class="lc-picklabel"><span></span><span class="t">Pick a sport</span><span></span></div>
+        <div class="lc-pick" id="pick">
+          <a class="lc-btn" href="?l=NBA">NBA</a>
+          <a class="lc-btn" href="?l=NFL">NFL</a>
+          <a class="lc-btn" href="?l=MLB">MLB</a>
+          <a class="lc-btn" href="?l=NHL">NHL</a>
+          <a class="lc-btn" href="?l=EPL">EPL</a>
+          <a class="lc-btn" href="?l=CFB">CFB</a>
+          <a class="lc-btn lc-btn--boxing" href="?l=BOXHW">Boxing &middot; 8 divisions</a>
+        </div>
+      </div>
+    </section>
+
+    <div class="lc-rule"></div>
+
+    <section class="lc-explainer" id="story">
+      <div class="lc-col">
+        <div class="lc-numeral">I. The rule</div>
+        <h3 class="lc-h3">A title changes hands one way.</h3>
+        <p class="lc-body">The reigning champion has to lose it in the ring. Not stripped. Not vacated. Not voted into existence by an alphabet body. If you want the belt, you go and beat the man who beat the man — and if he never loses, nobody else ever holds it.</p>
+      </div>
+      <div class="lc-col">
+        <div class="lc-numeral">II. The origin</div>
+        <h3 class="lc-h3">Bare knuckles, 1880s.</h3>
+        <p class="lc-body">Before sanctioning bodies existed, the heavyweight championship was simply a list of names in order. Sullivan, then Corbett, then Fitzsimmons. When the WBC, WBA, IBF and WBO splintered the official title, the lineal championship became the one that could not be manufactured on paper.</p>
+      </div>
+      <div class="lc-col">
+        <div class="lc-numeral">III. The experiment</div>
+        <h3 class="lc-h3">Now do it to the NBA.</h3>
+        <p class="lc-body">We seed a team in each league's first season and walk forward, game by game. Holder wins, holder keeps. Holder loses, the winner takes it. Ties change nothing. It is not a claim about who is best — lineage is path-dependent, and that is the whole charm of it.</p>
+      </div>
+    </section>
+
+    <div class="lc-rule"></div>
+
+    <section class="lc-line" id="line">
+      <div class="lc-line-head">
+        <h2>The line, unbroken</h2>
+        <span class="lc-line-meta">Heavyweight &middot; 1891 &rarr; today</span>
+      </div>
+      <div class="lc-portraits">
+        <div class="lc-fig"><div class="lc-plate"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Robert_Fitzsimmons.jpg/500px-Robert_Fitzsimmons.jpg" alt="Bob Fitzsimmons"/></div><div class="nm">Fitzsimmons</div><div class="yr">1897</div></div>
+        <div class="lc-fig"><div class="lc-plate"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/James_J_Jeffries.jpg/500px-James_J_Jeffries.jpg" alt="James J. Jeffries"/></div><div class="nm">Jeffries</div><div class="yr">1899</div></div>
+        <div class="lc-fig"><div class="lc-plate"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Jack_Johnson%2C_1915_%28edit%29.jpg/500px-Jack_Johnson%2C_1915_%28edit%29.jpg" alt="Jack Johnson"/></div><div class="nm">Johnson</div><div class="yr">1908</div></div>
+        <div class="lc-fig"><div class="lc-plate"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Joe_Louis_by_van_Vechten.jpg/500px-Joe_Louis_by_van_Vechten.jpg" alt="Joe Louis"/></div><div class="nm">Louis</div><div class="yr">1937</div></div>
+        <div class="lc-fig"><div class="lc-plate"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Rocky_Marciano_%28cropped%29.jpg/500px-Rocky_Marciano_%28cropped%29.jpg" alt="Rocky Marciano"/></div><div class="nm">Marciano</div><div class="yr">1952</div></div>
+        <div class="lc-fig"><div class="lc-plate"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Muhammad_Ali_NYWTS.jpg/500px-Muhammad_Ali_NYWTS.jpg" alt="Muhammad Ali"/></div><div class="nm">Ali</div><div class="yr">1964</div></div>
+        <div class="lc-fig"><div class="lc-plate"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Tyson_Fury_at_Place_Bell%2C_Laval_Quebec%2C_Canada_-_Dec_16_2017_%28cropped%29.jpg/500px-Tyson_Fury_at_Place_Bell%2C_Laval_Quebec%2C_Canada_-_Dec_16_2017_%28cropped%29.jpg" alt="Tyson Fury"/></div><div class="nm">Fury</div><div class="yr">2015</div></div>
+      </div>
+      <div class="lc-line-foot"><span></span><span class="note">…and 30 more names between them. Every transfer is on the record.</span></div>
+    </section>
+
+    <div class="lc-quotewrap">
+      <div class="lc-quote">
+        <p>&ldquo;To be the man, you've got to beat the man.&rdquo;</p>
+        <div class="attr">Ric Flair, paraphrasing a century of boxing</div>
       </div>
     </div>
 
-    <div class="land-section">
-      <h2>The origin of the term</h2>
-      <p>The concept goes back to bareknuckle boxing in the 1880s, when there were no sanctioning bodies at all. The heavyweight title was traced as a direct chain of champions:</p>
-      <div class="land-chain">
-        <span class="name">John L. Sullivan</span>
-        <span class="arrow">→</span>
-        <span class="name">Corbett</span>
-        <span class="arrow">→</span>
-        <span class="name">Fitzsimmons</span>
-        <span class="arrow">→</span>
-        <span class="name">Jeffries</span>
-        <span class="arrow">→</span>
-        <span class="name">Burns</span>
-        <span class="arrow">→</span>
-        <span class="name">Johnson</span>
-        <span class="arrow">→</span>
-        <span class="name">…</span>
-      </div>
-      <p>Each man held the title until the next one defeated him. There was no ambiguity. As the 20th century brought competing sanctioning bodies — the WBC, WBA, IBF, WBO, each with their own belt and their own politics — "lineal" became the championship that couldn't be voted into existence or stripped on a technicality.</p>
-      <p>The Ring magazine has tracked lineal title rankings for decades. When a champion retires undefeated, the line is sometimes considered "vacated" and reconstructed from the most recent transfer of the belt. The history is contested in places, which is part of the appeal.</p>
-    </div>
-
-    <div class="land-section">
-      <h2>Applied to team sports</h2>
-      <p>This site asks a simple thought experiment: <i>who would currently hold the lineal belt</i> if a single championship had been on the line every game?</p>
-      <p>We start from a seed team in each league's first season and walk forward through every game ever played. Belt holder wins → they keep it. Belt holder loses → the winner takes it. Ties don't change anything. The current champion is whoever happens to hold the belt when the music stops.</p>
-      <p class="dim">It's not a serious claim that the lineal champ is "the best" team. Lineage is path-dependent — a team can hold the belt for years without ever winning a real championship, or a dynasty can lose the belt early and never get it back. That's part of the charm.</p>
-    </div>
-
-    <div class="land-section">
+    <section class="lc-cover" id="cover">
       <h2>What we cover</h2>
-      <p class="dim">The lineage for each league is computed from a complete game-by-game record going back to:</p>
-      <div class="land-coverage">
-        <div class="row"><b>NBA</b><span>1947 — BAA inaugural season</span></div>
-        <div class="row"><b>NFL</b><span>1933 — first NFL Championship Game</span></div>
-        <div class="row"><b>MLB</b><span>1871 — National Association</span></div>
-        <div class="row"><b>NHL</b><span>1917 — league founding</span></div>
-        <div class="row"><b>EPL</b><span>1992 — Premier League formation</span></div>
-        <div class="row"><b>CFB</b><span>1869 — first college football game</span></div>
+      <div class="lc-cover-grid">
+        <div>
+          <div class="lc-cover-row"><span class="lg">NBA</span><span class="since">1947 &mdash; BAA inaugural season</span></div>
+          <div class="lc-cover-row"><span class="lg">NFL</span><span class="since">1933 &mdash; first Championship Game</span></div>
+          <div class="lc-cover-row"><span class="lg">MLB</span><span class="since">1871 &mdash; National Association</span></div>
+          <div class="lc-cover-row"><span class="lg">NHL</span><span class="since">1917 &mdash; league founding</span></div>
+        </div>
+        <div>
+          <div class="lc-cover-row"><span class="lg">EPL</span><span class="since">1992 &mdash; Premier League formation</span></div>
+          <div class="lc-cover-row"><span class="lg">CFB</span><span class="since">1869 &mdash; first college football game</span></div>
+          <div class="lc-cover-row"><span class="lg">Boxing</span><span class="since">1882 &mdash; the classic eight divisions</span></div>
+          <div class="lc-cover-row"><span class="vac">Some divisions currently read vacant — honestly.</span><a class="why" href="?l=BOXWW">Why &rarr;</a></div>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <div class="land-section">
-      <h2>The fine print</h2>
-      <p>Where teams have changed cities or names (Brooklyn Dodgers → Los Angeles Dodgers, St. Louis Rams → Los Angeles Rams), our underlying data sometimes uses different codes for what fans think of as the same franchise. The lineage is "city-faithful," not "fan-faithful" — a relocation usually counts as a new entity.</p>
-      <p>For early-era leagues with many short-lived franchises, the belt automatically transfers to the next game's winner if the current holder hasn't played in over a year. This stops the title from getting permanently stranded on defunct teams like the Fort Wayne Kekiongas (1871) or the Quebec Bulldogs (1920s).</p>
-    </div>
+    <section class="lc-band">
+      <div class="txt">
+        <h2>Start with boxing.</h2>
+        <p>It is where the idea comes from — eight divisions, the lore of every famous night, and a &ldquo;what if?&rdquo; switch that lets you break the chain at Marciano's retirement and watch the lineage rewrite itself.</p>
+      </div>
+      <a class="lc-cta" href="?l=BOXHW">Enter the tracker</a>
+    </section>
 
-    <div class="land-cta">
-      <h2>Pick a sport.</h2>
-      <p class="dim">Tap any league to see the current belt holder and the entire chain of fights that got them there.</p>
-      <div class="land-pick" id="landPick2"></div>
-    </div>
-  </div>
+    <footer class="lc-footer">
+      <span>The Lineal Champ &middot; thelinealchamp.com</span>
+      <span class="r"><a href="?l=NBA">Sources</a><a href="#story">About</a></span>
+    </footer>
+
+  </div></div>
 
   <div class="tracker" id="tracker">
   <h1>The Lineal Champ <button id="aboutBtn" class="about-link" title="About">?</button></h1>
