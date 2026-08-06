@@ -1,0 +1,50 @@
+name: Backfill lineage (full rebuild)
+
+# Deliberate, manual-only full rebuild of one or more leagues from their seed
+# year, via build_lineage.py + upload_to_worker.py. This is the expensive path
+# (re-downloads a league's entire history) and is NOT scheduled — run it only
+# for a first backfill or to correct historical data. Day-to-day currency is
+# handled cheaply by the weekly "Refresh lineal data" workflow instead.
+
+on:
+  workflow_dispatch:
+    inputs:
+      leagues:
+        description: "Comma-separated leagues to rebuild (e.g. NHL or NBA,MLB)"
+        required: true
+        default: "NBA,MLB,NHL,EPL,CFB"
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350  # cold full history can be long; still under GitHub's 6h cap
+    defaults:
+      run:
+        working-directory: linealchamp-data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache/restore@v4
+        with:
+          path: linealchamp-data/cache
+          key: backfill-cache-v1-${{ github.run_id }}
+          restore-keys: |
+            backfill-cache-v1-
+      - run: pip install -r requirements.txt
+      - name: Build lineage
+        env:
+          BDL_API_KEY: ${{ secrets.BDL_API_KEY }}
+          CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+        run: python build_lineage.py --leagues ${{ github.event.inputs.leagues }}
+      - name: Upload to Worker KV
+        if: ${{ !cancelled() }}
+        env:
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+        run: python upload_to_worker.py --leagues ${{ github.event.inputs.leagues }}
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: linealchamp-data/cache
+          key: backfill-cache-v1-${{ github.run_id }}

@@ -4,60 +4,292 @@
   "seedTeam": "GEORGEDIXON",
   "seedDate": "1890-06-27",
   "asOfDate": "2026-01-01",
-  "currentChamp": "VACANT",
+  "currentChamp": "ESPINOZA",
   "brand": {
-    "GEORGEDIXON": "George Dixon", "SOLLYSMITH": "Solly Smith", "DAVESULLIVAN": "Dave Sullivan",
-    "TERRYMCGOVERN": "Terry McGovern", "YOUNGCORBETTII": "Young Corbett II", "ABEATTELL": "Abe Attell",
-    "JOHNNYKILBANE": "Johnny Kilbane", "EUGENECRIQUI": "Eugene Criqui", "JOHNNYDUNDEE": "Johnny Dundee",
-    "LOUISKIDKAPLAN": "Louis (Kid) Kaplan", "BATTLINGBATTALINO": "Battling Battalino",
-    "ARMSTRONG": "Henry Armstrong", "WILLIEPEP": "Willie Pep", "SANDYSADDLER": "Sandy Saddler",
-    "HOGANKIDBASSEY": "Hogan (Kid) Bassey", "DAVEYMOORE": "Davey Moore", "SUGARRAMOS": "Sugar Ramos",
-    "VICENTESALDIVAR": "Vicente Saldivar", "JOHNNYFAMECHON": "Johnny Famechon",
-    "KUNIAKISHIBATA": "Kuniaki Shibata", "CLEMENTESANCHEZ": "Clemente Sanchez",
-    "JOSELEGRA": "Jose Legra", "EDERJOFRE": "Eder Jofre", "EUSEBIOPEDROZA": "Eusebio Pedroza",
-    "BARRYMCGUIGAN": "Barry McGuigan", "STEVECRUZ": "Steve Cruz", "ANTONIOESPARRAGOZA": "Antonio Esparragoza",
-    "PARKYUNGKYUN": "Park Yung-kyun", "NASEEMHAMED": "Prince Naseem Hamed", "BARRERA": "Marco Antonio Barrera",
-    "PACQUIAO": "Manny Pacquiao", "FRAMPTON": "Carl Frampton", "SANTACRUZ": "Leo Santa Cruz",
-    "VACANT": "Vacant"
+    "GEORGEDIXON": "George Dixon",
+    "SOLLYSMITH": "Solly Smith",
+    "DAVESULLIVAN": "Dave Sullivan",
+    "TERRYMCGOVERN": "Terry McGovern",
+    "YOUNGCORBETTII": "Young Corbett II",
+    "ABEATTELL": "Abe Attell",
+    "JOHNNYKILBANE": "Johnny Kilbane",
+    "EUGENECRIQUI": "Eugene Criqui",
+    "JOHNNYDUNDEE": "Johnny Dundee",
+    "LOUISKIDKAPLAN": "Louis (Kid) Kaplan",
+    "BATTLINGBATTALINO": "Battling Battalino",
+    "ARMSTRONG": "Henry Armstrong",
+    "WILLIEPEP": "Willie Pep",
+    "SANDYSADDLER": "Sandy Saddler",
+    "HOGANKIDBASSEY": "Hogan (Kid) Bassey",
+    "DAVEYMOORE": "Davey Moore",
+    "SUGARRAMOS": "Sugar Ramos",
+    "VICENTESALDIVAR": "Vicente Saldivar",
+    "JOHNNYFAMECHON": "Johnny Famechon",
+    "KUNIAKISHIBATA": "Kuniaki Shibata",
+    "CLEMENTESANCHEZ": "Clemente Sanchez",
+    "JOSELEGRA": "Jose Legra",
+    "EDERJOFRE": "Eder Jofre",
+    "EUSEBIOPEDROZA": "Eusebio Pedroza",
+    "BARRYMCGUIGAN": "Barry McGuigan",
+    "STEVECRUZ": "Steve Cruz",
+    "ANTONIOESPARRAGOZA": "Antonio Esparragoza",
+    "PARKYUNGKYUN": "Park Yung-kyun",
+    "NASEEMHAMED": "Prince Naseem Hamed",
+    "BARRERA": "Marco Antonio Barrera",
+    "PACQUIAO": "Manny Pacquiao",
+    "FRAMPTON": "Carl Frampton",
+    "SANTACRUZ": "Leo Santa Cruz",
+    "VACANT": "Vacant",
+    "ESPINOZA": "Rafael Espinoza"
   },
   "changes": [
-    { "date": "1890-06-27", "from": null, "to": "GEORGEDIXON", "score": "KO 18", "seed": true, "note": "Little Chocolate — the first Black world champion in any sport." },
-    { "date": "1897-10-04", "from": "GEORGEDIXON", "to": "SOLLYSMITH", "score": "W 20" },
-    { "date": "1898-09-26", "from": "SOLLYSMITH", "to": "DAVESULLIVAN", "score": "RTD 5" },
-    { "date": "1898-11-11", "from": "DAVESULLIVAN", "to": "GEORGEDIXON", "score": "DQ 10" },
-    { "date": "1900-01-09", "from": "GEORGEDIXON", "to": "TERRYMCGOVERN", "score": "TKO 8" },
-    { "date": "1901-11-28", "from": "TERRYMCGOVERN", "to": "YOUNGCORBETTII", "score": "KO 2" },
-    { "date": "1906-02-22", "from": null, "to": "ABEATTELL", "score": "W 15", "note": "Young Corbett outgrew the division; Attell's claim consolidated the vacant title." },
-    { "date": "1912-02-22", "from": "ABEATTELL", "to": "JOHNNYKILBANE", "score": "W 20" },
-    { "date": "1923-06-02", "from": "JOHNNYKILBANE", "to": "EUGENECRIQUI", "score": "KO 6" },
-    { "date": "1923-07-26", "from": "EUGENECRIQUI", "to": "JOHNNYDUNDEE", "score": "W 15" },
-    { "date": "1925-01-02", "from": null, "to": "LOUISKIDKAPLAN", "score": "TKO 9", "note": "Dundee vacated in 1924; Kaplan beat Danny Kramer to settle the vacant title." },
-    { "date": "1929-09-23", "from": null, "to": "BATTLINGBATTALINO", "score": "W 15", "note": "Kaplan outgrew the division in 1926 and the title splintered; Battalino's win over Andre Routis reunified it." },
-    { "date": "1937-10-29", "from": null, "to": "ARMSTRONG", "score": "KO 6", "note": "Battalino lost the title on the scales in 1932 and claims splintered; Armstrong stopped Petey Sarron to become undisputed." },
-    { "date": "1942-11-20", "from": null, "to": "WILLIEPEP", "score": "W 15", "note": "Armstrong vacated; Pep beat Chalky Wright and unified recognition from there." },
-    { "date": "1948-10-29", "from": "WILLIEPEP", "to": "SANDYSADDLER", "score": "KO 4" },
-    { "date": "1949-02-11", "from": "SANDYSADDLER", "to": "WILLIEPEP", "score": "UD 15" },
-    { "date": "1950-09-08", "from": "WILLIEPEP", "to": "SANDYSADDLER", "score": "RTD 7" },
-    { "date": "1957-06-24", "from": null, "to": "HOGANKIDBASSEY", "score": "KO 10", "note": "Saddler retired in 1957 after a car crash; Bassey beat Cherif Hamia for the vacant title." },
-    { "date": "1959-03-18", "from": "HOGANKIDBASSEY", "to": "DAVEYMOORE", "score": "RTD 13" },
-    { "date": "1963-03-21", "from": "DAVEYMOORE", "to": "SUGARRAMOS", "score": "RTD 10", "note": "Moore died from his injuries days later." },
-    { "date": "1964-09-26", "from": "SUGARRAMOS", "to": "VICENTESALDIVAR", "score": "RTD 12" },
-    { "date": "1969-01-21", "from": null, "to": "JOHNNYFAMECHON", "score": "W 15", "note": "Saldivar retired as champion in 1967; Famechon beat Jose Legra for the vacant title." },
-    { "date": "1970-05-09", "from": "JOHNNYFAMECHON", "to": "VICENTESALDIVAR", "score": "W 15" },
-    { "date": "1970-12-11", "from": "VICENTESALDIVAR", "to": "KUNIAKISHIBATA", "score": "TKO 12" },
-    { "date": "1972-05-19", "from": "KUNIAKISHIBATA", "to": "CLEMENTESANCHEZ", "score": "KO 3" },
-    { "date": "1972-12-16", "from": "CLEMENTESANCHEZ", "to": "JOSELEGRA", "score": "TKO 10" },
-    { "date": "1973-05-05", "from": "JOSELEGRA", "to": "EDERJOFRE", "score": "W 15" },
-    { "date": "1978-04-15", "from": null, "to": "EUSEBIOPEDROZA", "score": "KO 13", "note": "Jofre was stripped in 1974 and the line blurred; Pedroza's long reign became the consensus." },
-    { "date": "1985-06-08", "from": "EUSEBIOPEDROZA", "to": "BARRYMCGUIGAN", "score": "UD 15" },
-    { "date": "1986-06-23", "from": "BARRYMCGUIGAN", "to": "STEVECRUZ", "score": "UD 15" },
-    { "date": "1987-03-06", "from": "STEVECRUZ", "to": "ANTONIOESPARRAGOZA", "score": "TKO 12" },
-    { "date": "1991-03-30", "from": "ANTONIOESPARRAGOZA", "to": "PARKYUNGKYUN", "score": "W 12" },
-    { "date": "1997-02-08", "from": null, "to": "NASEEMHAMED", "score": "TKO 8", "note": "The early-90s line blurred; Hamed's unification vs Tom Johnson made him the consensus champion." },
-    { "date": "2001-04-07", "from": "NASEEMHAMED", "to": "BARRERA", "score": "UD 12" },
-    { "date": "2003-11-15", "from": "BARRERA", "to": "PACQUIAO", "score": "RTD 11" },
-    { "date": "2016-07-30", "from": null, "to": "FRAMPTON", "score": "MD 12", "note": "Pacquiao vacated moving up in 2005 and the line lapsed; Frampton beat Santa Cruz for the consensus title." },
-    { "date": "2017-01-28", "from": "FRAMPTON", "to": "SANTACRUZ", "score": "MD 12" },
-    { "date": "2020-02-01", "from": null, "to": "VACANT", "note": "Santa Cruz moved up in weight; the lineal featherweight title has been vacant since." }
+    {
+      "date": "1890-06-27",
+      "from": null,
+      "to": "GEORGEDIXON",
+      "score": "KO 18",
+      "seed": true,
+      "note": "Little Chocolate \u2014 the first Black world champion in any sport."
+    },
+    {
+      "date": "1897-10-04",
+      "from": "GEORGEDIXON",
+      "to": "SOLLYSMITH",
+      "score": "W 20"
+    },
+    {
+      "date": "1898-09-26",
+      "from": "SOLLYSMITH",
+      "to": "DAVESULLIVAN",
+      "score": "RTD 5"
+    },
+    {
+      "date": "1898-11-11",
+      "from": "DAVESULLIVAN",
+      "to": "GEORGEDIXON",
+      "score": "DQ 10"
+    },
+    {
+      "date": "1900-01-09",
+      "from": "GEORGEDIXON",
+      "to": "TERRYMCGOVERN",
+      "score": "TKO 8"
+    },
+    {
+      "date": "1901-11-28",
+      "from": "TERRYMCGOVERN",
+      "to": "YOUNGCORBETTII",
+      "score": "KO 2"
+    },
+    {
+      "date": "1906-02-22",
+      "from": null,
+      "to": "ABEATTELL",
+      "score": "W 15",
+      "note": "Young Corbett outgrew the division; Attell's claim consolidated the vacant title."
+    },
+    {
+      "date": "1912-02-22",
+      "from": "ABEATTELL",
+      "to": "JOHNNYKILBANE",
+      "score": "W 20"
+    },
+    {
+      "date": "1923-06-02",
+      "from": "JOHNNYKILBANE",
+      "to": "EUGENECRIQUI",
+      "score": "KO 6"
+    },
+    {
+      "date": "1923-07-26",
+      "from": "EUGENECRIQUI",
+      "to": "JOHNNYDUNDEE",
+      "score": "W 15"
+    },
+    {
+      "date": "1925-01-02",
+      "from": null,
+      "to": "LOUISKIDKAPLAN",
+      "score": "TKO 9",
+      "note": "Dundee vacated in 1924; Kaplan beat Danny Kramer to settle the vacant title."
+    },
+    {
+      "date": "1929-09-23",
+      "from": null,
+      "to": "BATTLINGBATTALINO",
+      "score": "W 15",
+      "note": "Kaplan outgrew the division in 1926 and the title splintered; Battalino's win over Andre Routis reunified it."
+    },
+    {
+      "date": "1937-10-29",
+      "from": null,
+      "to": "ARMSTRONG",
+      "score": "KO 6",
+      "note": "Battalino lost the title on the scales in 1932 and claims splintered; Armstrong stopped Petey Sarron to become undisputed."
+    },
+    {
+      "date": "1942-11-20",
+      "from": null,
+      "to": "WILLIEPEP",
+      "score": "W 15",
+      "note": "Armstrong vacated; Pep beat Chalky Wright and unified recognition from there."
+    },
+    {
+      "date": "1948-10-29",
+      "from": "WILLIEPEP",
+      "to": "SANDYSADDLER",
+      "score": "KO 4"
+    },
+    {
+      "date": "1949-02-11",
+      "from": "SANDYSADDLER",
+      "to": "WILLIEPEP",
+      "score": "UD 15"
+    },
+    {
+      "date": "1950-09-08",
+      "from": "WILLIEPEP",
+      "to": "SANDYSADDLER",
+      "score": "RTD 7"
+    },
+    {
+      "date": "1957-06-24",
+      "from": null,
+      "to": "HOGANKIDBASSEY",
+      "score": "KO 10",
+      "note": "Saddler retired in 1957 after a car crash; Bassey beat Cherif Hamia for the vacant title."
+    },
+    {
+      "date": "1959-03-18",
+      "from": "HOGANKIDBASSEY",
+      "to": "DAVEYMOORE",
+      "score": "RTD 13"
+    },
+    {
+      "date": "1963-03-21",
+      "from": "DAVEYMOORE",
+      "to": "SUGARRAMOS",
+      "score": "RTD 10",
+      "note": "Moore died from his injuries days later."
+    },
+    {
+      "date": "1964-09-26",
+      "from": "SUGARRAMOS",
+      "to": "VICENTESALDIVAR",
+      "score": "RTD 12"
+    },
+    {
+      "date": "1969-01-21",
+      "from": null,
+      "to": "JOHNNYFAMECHON",
+      "score": "W 15",
+      "note": "Saldivar retired as champion in 1967; Famechon beat Jose Legra for the vacant title."
+    },
+    {
+      "date": "1970-05-09",
+      "from": "JOHNNYFAMECHON",
+      "to": "VICENTESALDIVAR",
+      "score": "W 15"
+    },
+    {
+      "date": "1970-12-11",
+      "from": "VICENTESALDIVAR",
+      "to": "KUNIAKISHIBATA",
+      "score": "TKO 12"
+    },
+    {
+      "date": "1972-05-19",
+      "from": "KUNIAKISHIBATA",
+      "to": "CLEMENTESANCHEZ",
+      "score": "KO 3"
+    },
+    {
+      "date": "1972-12-16",
+      "from": "CLEMENTESANCHEZ",
+      "to": "JOSELEGRA",
+      "score": "TKO 10"
+    },
+    {
+      "date": "1973-05-05",
+      "from": "JOSELEGRA",
+      "to": "EDERJOFRE",
+      "score": "W 15"
+    },
+    {
+      "date": "1978-04-15",
+      "from": null,
+      "to": "EUSEBIOPEDROZA",
+      "score": "KO 13",
+      "note": "Jofre was stripped in 1974 and the line blurred; Pedroza's long reign became the consensus."
+    },
+    {
+      "date": "1985-06-08",
+      "from": "EUSEBIOPEDROZA",
+      "to": "BARRYMCGUIGAN",
+      "score": "UD 15"
+    },
+    {
+      "date": "1986-06-23",
+      "from": "BARRYMCGUIGAN",
+      "to": "STEVECRUZ",
+      "score": "UD 15"
+    },
+    {
+      "date": "1987-03-06",
+      "from": "STEVECRUZ",
+      "to": "ANTONIOESPARRAGOZA",
+      "score": "TKO 12"
+    },
+    {
+      "date": "1991-03-30",
+      "from": "ANTONIOESPARRAGOZA",
+      "to": "PARKYUNGKYUN",
+      "score": "W 12"
+    },
+    {
+      "date": "1997-02-08",
+      "from": null,
+      "to": "NASEEMHAMED",
+      "score": "TKO 8",
+      "note": "The early-90s line blurred; Hamed's unification vs Tom Johnson made him the consensus champion."
+    },
+    {
+      "date": "2001-04-07",
+      "from": "NASEEMHAMED",
+      "to": "BARRERA",
+      "score": "UD 12"
+    },
+    {
+      "date": "2003-11-15",
+      "from": "BARRERA",
+      "to": "PACQUIAO",
+      "score": "RTD 11"
+    },
+    {
+      "date": "2016-07-30",
+      "from": null,
+      "to": "FRAMPTON",
+      "score": "MD 12",
+      "note": "Pacquiao vacated moving up in 2005 and the line lapsed; Frampton beat Santa Cruz for the consensus title."
+    },
+    {
+      "date": "2017-01-28",
+      "from": "FRAMPTON",
+      "to": "SANTACRUZ",
+      "score": "MD 12"
+    },
+    {
+      "date": "2020-02-01",
+      "from": null,
+      "to": "VACANT",
+      "note": "Santa Cruz moved up in weight; the lineal featherweight title has been vacant since."
+    },
+    {
+      "date": "2023-12-09",
+      "from": "VACANT",
+      "to": "ESPINOZA",
+      "note": "Re-established the vacant lineal title, taking the WBO featherweight title from Emanuel Navarrete.",
+      "reestablished": true
+    }
   ]
 }
