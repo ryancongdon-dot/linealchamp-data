@@ -987,21 +987,33 @@ const PUBLIC_HTML = `<!doctype html>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0b0d12;
-    --bg-elev: #14171f;
-    --bg-card: #1a1e28;
-    --text: #e6e7eb;
-    --text-dim: #9aa0ad;
-    --border: #262b38;
-    --accent: #4f6cf7;
-    --win: #2dd4bf;
-    --loss: #f87171;
+    /* Classical "Fight Night" design system — shared with the landing page so
+       the whole site reads as one publication. Warm dark ground, gold accent
+       ramp, hairline rules, serif display + serif body. */
+    --font-display: "Cormorant Garamond", Georgia, serif;
+    --font-body: "Lora", Georgia, serif;
+    --bg: #191614;          /* ground */
+    --bg-elev: #201b18;     /* lifted tile */
+    --bg-card: #1f1a17;     /* card */
+    --band: #120f0e;        /* deepest band (hero) */
+    --text: #eae7e7;
+    --text-dim: #9b9797;
+    --border: rgba(230,225,215,0.16);   /* hairline */
+    --accent: #e1ad66;      /* gold */
+    --accent-soft: #facb8d;
+    --accent-bright: #fff3e4;
+    --accent-deep: #c28d41;
+    --display: #faf6ef;
+    --win: #7fb08a;
+    --loss: #d98a6a;
+    --r: 4px;
   }
   * { box-sizing: border-box; }
   html, body { background: var(--bg); color: var(--text); margin: 0; }
-  body { font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; }
-  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; }
-  h1 { margin: 0 0 16px; font-size: 28px; letter-spacing: -0.02em; }
+  body { font: 16px/1.6 var(--font-body); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 20px 80px; }
+  h1 { margin: 0 0 20px; font-family: var(--font-display); font-weight: 400;
+       font-size: 40px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--display); }
   .tabs { display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; }
   .tabs-main { display: flex; gap: 6px; flex-wrap: wrap; }
   .tabs-sub  { display: flex; flex-direction: column; gap: 10px;
@@ -1187,6 +1199,78 @@ const PUBLIC_HTML = `<!doctype html>
     border-radius: 10px; min-height: 20px; line-height: 1.6; }
   footer { margin-top: 32px; color: var(--text-dim); font-size: 12px; text-align: center; }
   footer a { color: var(--text-dim); }
+
+  /* ── Classical "Fight Night" skin — makes the tracker match the landing.
+     Palette/borders already cascade from the remapped :root tokens above;
+     these rules add the serif display type, editorial pills, and plate/hairline
+     treatments that give the tracker the same publication feel. ── */
+  .tracker { position: relative; }
+  .about-link { background: transparent; border: 1px solid var(--border); color: var(--text-dim); }
+  .about-link:hover { color: var(--accent-soft); border-color: var(--accent); }
+
+  /* Section tabs → editorial pills */
+  .tabs button { background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    border-radius: var(--r); text-transform: uppercase; letter-spacing: 0.1em;
+    font-size: 12px; font-weight: 500; }
+  .tabs button:hover { color: var(--accent-soft); border-color: rgba(225,173,102,0.5); }
+  .tabs button.active { background: rgba(194,141,65,0.16); border-color: var(--accent);
+    color: var(--accent-bright); }
+  .tabs-sub { background: rgba(255,255,255,0.02); border-radius: var(--r); }
+  .wc-heading { color: var(--text-dim); }
+  .lore-btn, .whatif-btn { border-radius: var(--r); color: var(--accent-soft);
+    border-color: rgba(225,173,102,0.35);
+    background: linear-gradient(135deg, rgba(194,141,65,0.14), rgba(225,173,102,0.04)); }
+  .lore-btn:hover, .whatif-btn:hover { border-color: var(--accent-soft);
+    background: linear-gradient(135deg, rgba(194,141,65,0.24), rgba(225,173,102,0.08)); }
+
+  /* Hero — current champion */
+  .hero { background: var(--band); border: 1px solid var(--border); border-radius: var(--r); }
+  .hero .accent-bg { opacity: 0.13; }
+  .hero .label { color: var(--accent-soft); letter-spacing: 0.2em; }
+  .hero .champ-text h2 { font-family: var(--font-display); font-weight: 500;
+    font-size: 58px; letter-spacing: -0.01em; color: var(--display); }
+  .hero .champ-logo { border-radius: var(--r); border: 1px solid var(--border);
+    background: var(--bg-elev); }
+
+  /* Stat tiles */
+  .stat { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--r); }
+  .stat .v { font-family: var(--font-display); font-weight: 500; font-size: 30px; color: var(--display); }
+  .stat.clickable:hover { border-color: var(--accent); }
+
+  /* Recent belt changes strip */
+  .strip h3 { color: var(--accent-soft); letter-spacing: 0.16em; }
+  .mini { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r); }
+  .mini .who { font-family: var(--font-display); font-weight: 500; font-size: 19px; color: var(--display); }
+  .mini .score { color: var(--loss); }
+
+  /* Controls */
+  .controls button { background: transparent; border: 1px solid var(--border); color: var(--text);
+    border-radius: var(--r); text-transform: uppercase; letter-spacing: 0.08em; font-size: 12px; }
+  .controls button:hover { background: transparent; border-color: var(--accent); color: var(--accent-soft); }
+
+  /* Timeline of title fights */
+  .ev .desc b { color: var(--display); }
+  .ev.change { background: rgba(194,141,65,0.06); }
+  .ev.win .pill { background: rgba(127,176,138,0.15); color: var(--win); }
+  .ev.loss .pill { background: rgba(217,138,106,0.15); color: var(--loss); }
+
+  /* Modals / rank tables */
+  .modal { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r); }
+  .modal h3 { font-family: var(--font-display); font-weight: 500; font-size: 27px; color: var(--display); }
+  .modal-row.win .score { color: var(--win); }
+  .modal-row.loss .score { color: var(--loss); }
+  .rank-table tr.me { background: rgba(225,173,102,0.09); }
+  .lore-year, .whatif-outcome { color: var(--accent-soft); }
+  .lore-title, .whatif-name { font-family: var(--font-display); font-weight: 500; color: var(--display); }
+  .branch-banner, .branch-banner .banner-reset { color: var(--accent-soft); }
+
+  /* Ask panel */
+  .ask { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r); }
+  .ask input:focus { border-color: var(--accent); }
+
+  /* Site footer */
+  footer { color: var(--text-dim); }
+  footer a { color: var(--accent-soft); }
 
   /* Landing / tracker show-hide */
   .landing { display: none; }
@@ -1504,7 +1588,7 @@ const PUBLIC_HTML = `<!doctype html>
 
 <script>
 (function(){
-  var PALETTE = ['#4f6cf7','#2dd4bf','#fb923c','#f472b6','#a78bfa','#facc15','#34d399'];
+  var PALETTE = ['#c28d41','#a06f24','#b5793a','#caa25e','#9c6b2e','#d9a441','#8a6a3b'];
   function colorFor(s){ var h=0; for(var i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0; return PALETTE[Math.abs(h)%PALETTE.length]; }
 
   var LEAGUES = ['NBA','NFL','MLB','NHL','EPL','CFB','BOX'];
