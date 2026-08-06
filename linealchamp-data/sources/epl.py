@@ -1,218 +1,137 @@
 """
-EPL source — balldontlie /epl/v1/games with a shape probe step.
+EPL source — football-data.co.uk CSV archives.
 
-The existing Worker bug is real: the EPL adapter expects 'home_team' /
-'away_team' but BDL may actually be using 'visitor_team' for the road team
-(like the NBA/NFL endpoints). We don't have access to test the live API from
-the development sandbox, so this module is written to handle BOTH shapes and
-log which one was actually present. Run the probe first to find out:
+Why not balldontlie: its EPL endpoint rate-limits so aggressively (HTTP 429
+even after a 60-second backoff) that a single uncached season could not be
+fetched inside a 60-minute CI budget — EPL timed out run after run. It is a
+dead end for this data.
 
-    python build_lineage.py --probe EPL --year 2023
+football-data.co.uk publishes every Premier League result as a free,
+unthrottled CSV, one file per season, so a full 1992->present rebuild takes
+seconds and never hits a rate limit.
 
-URL: https://api.balldontlie.io/epl/v1/games
-Auth: Bearer (same key as NBA/NFL endpoints)
+URL: https://www.football-data.co.uk/mmz4281/{code}/E0.csv
+  code = two 2-digit years: "9293" = 1992-93 season ... "2526" = 2025-26.
+  E0 = the Premier League (top flight).
 
-Likely response shape (one game), with field uncertainty noted:
-    {
-      "id": 12345,
-      "date" | "start_time" | "start": "2023-08-12T11:30:00Z",
-      "season": 2023,
-      "home_team":    { "abbreviation"|"short_code"|"full_name"|"name": "..." },
-      "away_team"|"visitor_team": { ...same shape... },
-      "home_team_score"|"home_score":  2,
-      "away_team_score"|"visitor_team_score"|"away_score": 1,
-      "status": "Final"
-    }
+Columns used (football-data's format is stable and documented):
+  Date      DD/MM/YY (older seasons) or DD/MM/YYYY (newer)
+  HomeTeam  spaced club name, e.g. "Man United", "Nott'm Forest"
+  AwayTeam  "
+  FTHG      full-time home goals
+  FTAG      full-time away goals
 
-We try every variant. The first one with usable data wins. If a season returns
-no games AT ALL, we log loudly so you know to either re-check the API key, hit
-the probe endpoint to see the live shape, or fall back to fbref scraping.
-
-EPL "as a league" started 1992. Pre-1992 English top-flight was Division One;
-those seasons are out of scope unless you change SEED_DATE.
+Team identity: we use football-data's spaced club names directly (via norm()).
+They're stable within the dataset and human-readable, so the source also hands
+back a display-name map (team_brand()) that build_lineage.py ships to the
+Worker — no ugly ALL-CAPS codes on the site.
 """
 
 from __future__ import annotations
 
-import json
-import os
-import time
+import csv
+import io
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 import requests
 
 from lineage import Game, norm
-from sources.util import cache_is_complete, get_with_backoff, is_recent, looks_final
+from sources.util import cache_is_complete
 
-SEED_TEAM = norm("Leeds United")  # 1991-92 Division One champions; last pre-EPL champs
+# Leeds United won the last pre-Premier-League top-flight title (1991-92);
+# football-data calls them "Leeds". They seed the lineage.
+SEED_TEAM = norm("Leeds")
 SEED_DATE = "1992-08-15"
 
-BDL_EPL_URL = "https://api.balldontlie.io/epl/v1/games"
-RATE_DELAY_SEC = 0.6
+URL_TMPL = "https://www.football-data.co.uk/mmz4281/{code}/E0.csv"
+HEADERS = {"User-Agent": "linealchamp-data/1.0 (historical backfill)"}
+
+# Populated during parsing: norm(name) -> original spaced name, for display.
+_TEAM_NAMES: dict[str, str] = {}
 
 
-def _api_key() -> str:
-    k = os.environ.get("BDL_API_KEY")
-    if not k:
-        raise RuntimeError("BDL_API_KEY env var required for EPL source.")
-    return k
+def _season_code(year: int) -> str:
+    """1992 -> '9293', 2025 -> '2526'."""
+    return f"{year % 100:02d}{(year + 1) % 100:02d}"
 
 
-def _cache_path(cache_dir: Path, season: int) -> Path:
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir / f"season-{season}.json"
-
-
-def _fetch_season(season: int, cache_dir: Path) -> list[dict]:
-    cf = _cache_path(cache_dir, season)
-    # An EPL season labeled N runs Aug N → May N+1; only trust the cache once
-    # the season is over.
-    if cache_is_complete(cf, f"{season + 1}-06-15"):
+def _parse_date(s: str) -> Optional[str]:
+    s = (s or "").strip()
+    for fmt in ("%d/%m/%Y", "%d/%m/%y"):
         try:
-            return json.loads(cf.read_text())
-        except Exception:
-            pass
-
-    all_items: list[dict] = []
-    cursor: Optional[str] = None
-    safety = 0
-    while True:
-        params = {
-            "per_page": "100",
-            "seasons[]": str(season),
-        }
-        if cursor is not None:
-            params["cursor"] = str(cursor)
-        r = get_with_backoff(
-            BDL_EPL_URL,
-            params,
-            headers={
-                "Authorization": f"Bearer {_api_key()}",
-                "Accept": "application/json",
-            },
-            label=f"EPL {season}",
-        )
-        if r.status_code in (401, 403):
-            raise RuntimeError(
-                f"BDL EPL returned {r.status_code} — your BDL_API_KEY may not have "
-                f"the EPL endpoint enabled (it's a paid tier on some plans). "
-                f"Response: {r.text[:200]}"
-            )
-        r.raise_for_status()
-        j = r.json()
-        all_items.extend(j.get("data", []))
-        nxt = (j.get("meta") or {}).get("next_cursor")
-        if not nxt:
-            break
-        cursor = nxt
-        safety += 1
-        if safety > 2000:
-            break
-        time.sleep(RATE_DELAY_SEC)
-    cf.write_text(json.dumps(all_items))
-    return all_items
-
-
-def _team_id(team: dict) -> str:
-    if not team:
-        return ""
-    for key in ("abbreviation", "short_code", "full_name", "name"):
-        v = team.get(key)
-        if v:
-            return norm(v)
-    return ""
-
-
-def _away_team(it: dict) -> dict:
-    """BDL EPL uses one of: away_team, visitor_team. Try both."""
-    return it.get("away_team") or it.get("visitor_team") or {}
-
-
-def _score_pair(it: dict) -> tuple[Optional[int], Optional[int]]:
-    """Return (home_score, away_score), trying every known field name."""
-    h = it.get("home_team_score")
-    if h is None:
-        h = it.get("home_score")
-    if h is None:
-        h = it.get("home_goals")
-    a = (
-        it.get("away_team_score")
-        or it.get("visitor_team_score")
-        or it.get("away_score")
-        or it.get("away_goals")
-    )
-    return h, a
-
-
-def _date_str(it: dict) -> Optional[str]:
-    for k in ("date", "start_time", "start", "kickoff", "scheduled"):
-        v = it.get(k)
-        if v:
-            return v
+            return datetime.strptime(s, fmt).strftime("%Y-%m-%dT00:00:00Z")
+        except ValueError:
+            continue
     return None
+
+
+def _cache_path(cache_dir: Path, year: int) -> Path:
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir / f"E0-{year}.csv"
+
+
+def _fetch_season_csv(year: int, cache_dir: Path) -> str:
+    cf = _cache_path(cache_dir, year)
+    # A season labeled N runs Aug N -> May N+1; only trust the cache once it's over.
+    if cache_is_complete(cf, f"{year + 1}-06-15"):
+        return cf.read_text(encoding="latin-1")
+    r = requests.get(URL_TMPL.format(code=_season_code(year)), headers=HEADERS, timeout=60)
+    if r.status_code == 404:
+        return ""
+    r.raise_for_status()
+    text = r.content.decode("latin-1")
+    cf.write_text(text, encoding="latin-1")
+    return text
+
+
+def _parse_csv(text: str, year: int) -> list[Game]:
+    if not text.strip():
+        return []
+    out: list[Game] = []
+    reader = csv.DictReader(io.StringIO(text))
+    for i, row in enumerate(reader):
+        home = (row.get("HomeTeam") or "").strip()
+        away = (row.get("AwayTeam") or "").strip()
+        hg = (row.get("FTHG") or "").strip()
+        ag = (row.get("FTAG") or "").strip()
+        if not home or not away or hg == "" or ag == "":
+            continue
+        iso = _parse_date(row.get("Date"))
+        if iso is None:
+            continue
+        try:
+            hs, as_ = int(hg), int(ag)
+        except ValueError:
+            continue
+        h_id, a_id = norm(home), norm(away)
+        _TEAM_NAMES[h_id] = home
+        _TEAM_NAMES[a_id] = away
+        out.append(
+            Game(id=f"FD-EPL-{year}-{i}", date=iso,
+                 home_id=h_id, away_id=a_id, home_score=hs, away_score=as_)
+        )
+    return out
 
 
 def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
     y0 = max(1992, int(start[:4]))
     y1 = int(end[:4])
     out: list[Game] = []
-    consecutive_failures = 0
-    for season in range(y0, y1 + 1):
+    for year in range(y0, y1 + 1):
         try:
-            items = _fetch_season(season, cache_dir)
-            consecutive_failures = 0
+            text = _fetch_season_csv(year, cache_dir)
         except Exception as exc:
-            print(f"  EPL season {season} fetch failed: {exc}", flush=True)
-            consecutive_failures += 1
-            # Same circuit breaker as NBA: when the shared BDL rate limit has
-            # exhausted retries several seasons running, stop instead of
-            # cycling backoff for hours. Cached seasons persist across runs.
-            if consecutive_failures >= 3:
-                print(
-                    f"  EPL: {consecutive_failures} consecutive season failures — "
-                    f"aborting this run. Cached progress is kept; the next run resumes.",
-                    flush=True,
-                )
-                break
+            print(f"  EPL {year} fetch failed: {exc}", flush=True)
             continue
-
-        before = len(out)
-        for it in items:
-            home_id = _team_id(it.get("home_team") or {})
-            away_id = _team_id(_away_team(it))
-            if not home_id or not away_id:
-                continue
-            hs, as_ = _score_pair(it)
-            if hs is None or as_ is None:
-                continue
-            d = _date_str(it) or f"{season}-08-01"
-            iso_d = d if "T" in d else f"{d}T00:00:00Z"
-            if not (start <= iso_d[:10] <= end):
-                continue
-            # Require an explicit final status near the as-of date so partial
-            # scores from in-progress matches never get recorded.
-            if is_recent(iso_d, end) and not looks_final(it.get("status")):
-                continue
-            try:
-                out.append(
-                    Game(
-                        id=f"BDL-EPL-{it.get('id')}",
-                        date=iso_d,
-                        home_id=home_id,
-                        away_id=away_id,
-                        home_score=int(hs),
-                        away_score=int(as_),
-                    )
-                )
-            except (TypeError, ValueError):
-                continue
-
-        added = len(out) - before
-        print(f"  EPL season {season}: {added} games (raw: {len(items)})", flush=True)
-        if added == 0 and len(items) > 0:
-            # The fetch worked but our parser found nothing usable — dump one
-            # raw item so the user can see what shape actually came back.
-            print(f"    ⚠ raw item shape: {json.dumps(items[0], indent=2)[:500]}", flush=True)
-
+        games = [g for g in _parse_csv(text, year) if start <= g.date[:10] <= end]
+        out.extend(games)
+        print(f"  EPL {year}: {len(games)} games", flush=True)
     return out
+
+
+def team_brand() -> dict:
+    """Display-name map for every club seen in this build, so the site shows
+    'Man United' rather than 'MANUNITED'. Consumed by build_lineage.py."""
+    return {code: {"name": name} for code, name in sorted(_TEAM_NAMES.items())}

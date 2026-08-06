@@ -136,6 +136,19 @@ def update_one(league: str, base: str, secret: str, lookback_days: int) -> bool:
     }
     ok = _post(base, "/admin/upload-lineage", league, lineage_body, secret)
 
+    # If the source supplies display names (e.g. EPL club names), push them so
+    # newly-promoted clubs seen in this window get real names, not raw codes.
+    if hasattr(src, "team_brand"):
+        brand = src.team_brand()
+        if brand:
+            r = requests.post(
+                f"{base}/admin/brand/bulk",
+                headers={"x-admin-secret": secret, "content-type": "application/json"},
+                data=json.dumps({"league": league, "map": brand}),
+                timeout=120,
+            )
+            print(f"  brand map: {'✓' if r.ok else '✗'} {r.status_code}", flush=True)
+
     # 5. Append any new title-fight events (best effort; lineage is what the
     #    hero/current-champ display depends on).
     if new_events:
