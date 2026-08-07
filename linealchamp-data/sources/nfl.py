@@ -1,181 +1,118 @@
 """
-NFL source — pro-football-reference.com season schedules.
+NFL source — FiveThirtyEight's committed game log (a single CSV we own).
 
-Why scraping PFR rather than nflverse or BDL:
-- balldontlie NFL only covers 2002+, missing 82 years of lineage.
-- nflverse covers 1999+ — better than BDL but still misses pre-1999.
-- PFR has every game from 1920 onward in a consistent table.
+Why this instead of scraping pro-football-reference: PFR now returns HTTP 403
+to automated requests, so the old scraper could not fetch a single season. This
+source instead reads FiveThirtyEight's `nfl_games.csv` — every NFL/APFA game
+from 1920 through Super Bowl LV (Feb 2021), one flat CSV hosted on GitHub. It is
+frozen (538 stopped updating), which is exactly what we want for a "gather once,
+own the file" backfill: no rate limits, no blocking, identical every run.
 
-URL pattern: https://www.pro-football-reference.com/years/<YEAR>/games.htm
+    https://github.com/fivethirtyeight/nfl-elo-game  (data/nfl_games.csv)
 
-Each page has a "games" table with columns:
-    Week  Day  Date  Time  Winner/Tie  At  Loser/Tie  Boxscore  PtsW  PtsL  YdsW  TOW  YdsL  TOL
+Columns used:
+    date    YYYY-MM-DD
+    team1   3-letter team code   (home / first team)
+    team2   3-letter team code   (away / second team)
+    score1  team1 final points
+    score2  team2 final points
 
-Critical parser quirks:
-- "At" column contains '@' if the row's "Loser" was the home team. Otherwise
-  the "Winner" was the home team.
-- Pre-season weeks ("Pre0"..."Pre4") and the All-Star game must be filtered.
-  We only want regular-season (numeric weeks) and postseason ("WildCard",
-  "Division", "ConfChamp", "SuperBowl", "WC", "Div").
-- Some early-1920s rows have no scores ("PtsW", "PtsL" blank) — skip them.
-- The 2020 season had unusual "WildCard" labels because of the expanded format.
-
-PFR's robots.txt asks for a 3-second crawl-delay. We honor that.
-
-Team-name normalization: PFR uses full team names ("New England Patriots",
-"Boston Yanks", etc.). We rely on the lineage.norm() (uppercase + no whitespace)
-which means "NEWENGLANDPATRIOTS" stays as one ID across the whole dataset.
-Franchise relocations get a new ID (e.g., "STLOUISRAMS" → "LOSANGELESRAMS")
-which is the correct behavior for lineal lineage — the city move counts as a
-new entity for tracking purposes. If you want to merge them, do it in the
-Worker's brand mapping, not here.
+The lineal winner is just the higher score (ties retain the belt), so we map
+team1 -> home and team2 -> away and let lineage.py do the rest. Team codes are
+538's stable franchise codes; team_brand() maps them to real names for display.
 """
 
 from __future__ import annotations
 
-import re
-import time
+import csv
+import io
 from pathlib import Path
 
 import requests
-from bs4 import BeautifulSoup
 
 from lineage import Game, norm
-from sources.util import cache_is_complete
 
-SEED_TEAM = norm("Akron Pros")  # 1920 APFA inaugural champion (conventional NFL lineal seed)
-SEED_DATE = "1920-09-26"  # first APFA game date
+# Akron Pros — 1920 APFA inaugural champion, the conventional NFL lineal seed.
+SEED_TEAM = norm("AKR")
+SEED_DATE = "1920-09-26"
 
-PFR_URL_TMPL = "https://www.pro-football-reference.com/years/{year}/games.htm"
-CRAWL_DELAY = 3.0
-HEADERS = {
-    "User-Agent": "linealchamp-data/1.0 (https://linealchamp-api.ryan-congdon.workers.dev/ one-time historical backfill)"
+CSV_URL = "https://raw.githubusercontent.com/fivethirtyeight/nfl-elo-game/master/data/nfl_games.csv"
+HEADERS = {"User-Agent": "linealchamp-data/1.0 (historical backfill)"}
+
+# 538 team code -> display name. Covers the modern 32 plus every franchise that
+# ever held the lineal belt; obscure 1920s one-off clubs fall back to their code.
+NAMES = {
+    # Modern 32
+    "ARI": "Arizona Cardinals", "ATL": "Atlanta Falcons", "BAL": "Baltimore Ravens",
+    "BUF": "Buffalo Bills", "CAR": "Carolina Panthers", "CHI": "Chicago Bears",
+    "CIN": "Cincinnati Bengals", "CLE": "Cleveland Browns", "DAL": "Dallas Cowboys",
+    "DEN": "Denver Broncos", "DET": "Detroit Lions", "GB": "Green Bay Packers",
+    "HOU": "Houston Texans", "IND": "Indianapolis Colts", "JAX": "Jacksonville Jaguars",
+    "KC": "Kansas City Chiefs", "LAC": "Los Angeles Chargers", "LAR": "Los Angeles Rams",
+    "MIA": "Miami Dolphins", "MIN": "Minnesota Vikings", "NE": "New England Patriots",
+    "NO": "New Orleans Saints", "NYG": "New York Giants", "NYJ": "New York Jets",
+    "OAK": "Las Vegas Raiders", "PHI": "Philadelphia Eagles", "PIT": "Pittsburgh Steelers",
+    "SEA": "Seattle Seahawks", "SF": "San Francisco 49ers", "TB": "Tampa Bay Buccaneers",
+    "TEN": "Tennessee Titans", "WSH": "Washington Commanders",
+    # Historical belt-holders
+    "AKR": "Akron Pros", "BFF": "Buffalo All-Americans", "BKN": "Brooklyn Dodgers",
+    "BYK": "Brooklyn Yankees", "CBD": "Canton Bulldogs", "CIB": "Cleveland Bulldogs",
+    "DAY": "Dayton Triangles", "DTX": "Dallas Texans", "FYJ": "Frankford Yellow Jackets",
+    "NYA": "New York Yankees (NFL)", "NYY": "New York Yanks", "PRV": "Providence Steam Roller",
+    "PTB": "Pottsville Maroons", "RII": "Rock Island Independents", "STG": "Phil-Pitt Steagles",
+    # Common older opponents
+    "COL": "Columbus Tigers", "RAC": "Racine Legion", "MIL": "Milwaukee Badgers",
+    "DUL": "Duluth Eskimos", "HAM": "Hammond Pros", "TOL": "Toledo Maroons",
+    "KCB": "Kansas City Blues", "HRT": "Hartford Blues", "PTQ": "Pottsville Maroons",
 }
 
-VALID_WEEK_RE = re.compile(
-    r"^(\d+|WildCard|WC|Division|Div|ConfChamp|Conf|SuperBowl|SB)$",
-    re.IGNORECASE,
-)
+_TEAM_NAMES: dict[str, str] = {}
 
 
-def _cached_year_html(cache_dir: Path, year: int) -> Path:
+def _cache_path(cache_dir: Path) -> Path:
     cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir / f"{year}.html"
+    return cache_dir / "nfl_games.csv"
 
 
-def _fetch_year_html(year: int, cache_dir: Path) -> str:
-    cf = _cached_year_html(cache_dir, year)
-    # An NFL season labeled N ends with the Super Bowl in February N+1; only
-    # trust the cached page once that window is closed.
-    if cache_is_complete(cf, f"{year + 1}-02-28"):
+def _load_csv(cache_dir: Path) -> str:
+    cf = _cache_path(cache_dir)
+    # The 538 file is frozen, so once cached it never needs re-fetching.
+    if cf.exists() and cf.stat().st_size > 0:
         return cf.read_text(encoding="utf-8")
-    r = requests.get(PFR_URL_TMPL.format(year=year), headers=HEADERS, timeout=30)
-    if r.status_code == 404:
-        return ""
+    r = requests.get(CSV_URL, headers=HEADERS, timeout=90)
     r.raise_for_status()
-    cf.write_text(r.text, encoding="utf-8")
-    time.sleep(CRAWL_DELAY)
-    return r.text
-
-
-def _parse_games_table(html: str, year: int) -> list[Game]:
-    if not html:
-        return []
-    soup = BeautifulSoup(html, "html.parser")
-    table = soup.find("table", id="games") or soup.find("table", {"class": "stats_table"})
-    if not table:
-        return []
-    out: list[Game] = []
-    tbody = table.find("tbody")
-    if not tbody:
-        return []
-    for i, tr in enumerate(tbody.find_all("tr")):
-        if tr.get("class") and "thead" in tr.get("class"):
-            continue
-        # Cells: PFR uses data-stat attributes which are stable across years.
-        cells = {td.get("data-stat"): td for td in tr.find_all(["th", "td"])}
-        week = (cells.get("week_num") or cells.get("week"))
-        if week is None:
-            continue
-        week_txt = week.get_text(strip=True)
-        if not VALID_WEEK_RE.match(week_txt):
-            continue
-
-        date_td = cells.get("game_date") or cells.get("boxscore_word")
-        winner_td = cells.get("winner")
-        at_td = cells.get("game_location") or cells.get("game_outcome")
-        loser_td = cells.get("loser")
-        ptsw_td = cells.get("pts_win")
-        ptsl_td = cells.get("pts_lose")
-        boxscore_td = cells.get("boxscore_word")
-
-        if not (winner_td and loser_td and ptsw_td and ptsl_td):
-            continue
-
-        winner_name = winner_td.get_text(strip=True)
-        loser_name = loser_td.get_text(strip=True)
-        if not winner_name or not loser_name:
-            continue
-
-        try:
-            pw = int(ptsw_td.get_text(strip=True))
-            pl = int(ptsl_td.get_text(strip=True))
-        except ValueError:
-            continue  # game not yet played, or pts blank
-
-        # Determine home/away. The 'at' cell contains '@' when the WINNER was on
-        # the road (i.e., LOSER was at home).
-        at_txt = at_td.get_text(strip=True) if at_td else ""
-        winner_was_away = at_txt == "@"
-        if winner_was_away:
-            home_id, home_score = norm(loser_name), pl
-            away_id, away_score = norm(winner_name), pw
-        else:
-            home_id, home_score = norm(winner_name), pw
-            away_id, away_score = norm(loser_name), pl
-
-        date_txt = date_td.get_text(strip=True) if date_td else f"{year}-09-01"
-        # PFR date is "2023-09-07" format; sometimes "Sep 7" for current week
-        # — fall back to year-01-01 in that case so chronology stays sane.
-        try:
-            from datetime import datetime as _dt
-            d = _dt.strptime(date_txt, "%Y-%m-%d")
-            iso_date = d.strftime("%Y-%m-%dT00:00:00Z")
-        except ValueError:
-            iso_date = f"{year}-09-01T00:00:00Z"
-
-        # Game ID from boxscore link if available, else a synthetic one.
-        bs_link = boxscore_td.find("a") if boxscore_td else None
-        gid = (
-            bs_link.get("href").split("/")[-1].replace(".htm", "")
-            if bs_link
-            else f"PFR-{year}-{i}"
-        )
-
-        out.append(
-            Game(
-                id=gid,
-                date=iso_date,
-                home_id=home_id,
-                away_id=away_id,
-                home_score=home_score,
-                away_score=away_score,
-            )
-        )
-    return out
+    text = r.text
+    cf.write_text(text, encoding="utf-8")
+    return text
 
 
 def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
-    y0 = int(start[:4])
-    y1 = int(end[:4])
+    text = _load_csv(cache_dir)
     out: list[Game] = []
-    for y in range(y0, y1 + 1):
+    reader = csv.DictReader(io.StringIO(text))
+    for i, row in enumerate(reader):
+        date = (row.get("date") or "").strip()
+        t1 = (row.get("team1") or "").strip()
+        t2 = (row.get("team2") or "").strip()
+        s1 = (row.get("score1") or "").strip()
+        s2 = (row.get("score2") or "").strip()
+        if not date or not t1 or not t2 or s1 == "" or s2 == "":
+            continue
+        if not (start <= date[:10] <= end):
+            continue
         try:
-            html = _fetch_year_html(y, cache_dir)
-            year_games = _parse_games_table(html, y)
-            if year_games:
-                out.extend(g for g in year_games if start <= g.date[:10] <= end)
-                print(f"  NFL {y}: {len(year_games)} games", flush=True)
-        except Exception as exc:
-            print(f"  NFL {y} failed: {exc}", flush=True)
+            hs, as_ = int(s1), int(s2)
+        except ValueError:
+            continue
+        h_id, a_id = norm(t1), norm(t2)
+        _TEAM_NAMES[h_id] = NAMES.get(h_id, t1)
+        _TEAM_NAMES[a_id] = NAMES.get(a_id, t2)
+        out.append(Game(id=f"FTE-NFL-{i}", date=f"{date[:10]}T00:00:00Z",
+                        home_id=h_id, away_id=a_id, home_score=hs, away_score=as_))
+    print(f"  NFL: {len(out)} games from 538 nfl_games.csv", flush=True)
     return out
+
+
+def team_brand() -> dict:
+    """Display-name map for every club seen in this build."""
+    return {code: {"name": name} for code, name in sorted(_TEAM_NAMES.items())}
