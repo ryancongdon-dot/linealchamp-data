@@ -1,25 +1,22 @@
 """
-NFL source — FiveThirtyEight's committed game log (a single CSV we own).
+NFL source — two committed feeds spliced into one continuous history.
 
-Why this instead of scraping pro-football-reference: PFR now returns HTTP 403
-to automated requests, so the old scraper could not fetch a single season. This
-source instead reads FiveThirtyEight's `nfl_games.csv` — every NFL/APFA game
-from 1920 through Super Bowl LV (Feb 2021), one flat CSV hosted on GitHub. It is
-frozen (538 stopped updating), which is exactly what we want for a "gather once,
-own the file" backfill: no rate limits, no blocking, identical every run.
+The lineal chain must run unbroken from 1920, AND stay current after each week's
+games. No single free source does both, so we splice two:
 
-    https://github.com/fivethirtyeight/nfl-elo-game  (data/nfl_games.csv)
+  * 1920 - 1998  →  FiveThirtyEight `nfl_games.csv` (frozen; deep history that
+                    never changes, so it's cached once).
+  * 1999 - today →  nflverse `games.csv` (github.com/nflverse/nfldata), which is
+                    updated after every game — fetched fresh each run so the
+                    daily refresh keeps the belt current.
 
-Columns used:
-    date    YYYY-MM-DD
-    team1   3-letter team code   (home / first team)
-    team2   3-letter team code   (away / second team)
-    score1  team1 final points
-    score2  team2 final points
+pro-football-reference (the old scraper) 403s automated requests, which is why
+both feeds are GitHub-hosted CSVs instead.
 
-The lineal winner is just the higher score (ties retain the belt), so we map
-team1 -> home and team2 -> away and let lineage.py do the rest. Team codes are
-538's stable franchise codes; team_brand() maps them to real names for display.
+Franchise continuity: 538 uses franchise-stable codes; nflverse uses city codes
+that change on relocation. We canonicalize the moved franchises so a team keeps
+one lineal identity across the 1999 seam and across later moves
+(STL/LA→LAR, SD→LAC, LV→OAK, WAS→WSH).
 """
 
 from __future__ import annotations
@@ -36,13 +33,25 @@ from lineage import Game, norm
 SEED_TEAM = norm("AKR")
 SEED_DATE = "1920-09-26"
 
-CSV_URL = "https://raw.githubusercontent.com/fivethirtyeight/nfl-elo-game/master/data/nfl_games.csv"
+# The 1999 NFL season starts in September; this cleanly splits the two feeds
+# (538 covers through the 1998 season, ending ~Feb 1999).
+SPLICE = "1999-08-01"
+
+CSV_538 = "https://raw.githubusercontent.com/fivethirtyeight/nfl-elo-game/master/data/nfl_games.csv"
+CSV_NFLVERSE = "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv"
 HEADERS = {"User-Agent": "linealchamp-data/1.0 (historical backfill)"}
 
-# 538 team code -> display name. Covers the modern 32 plus every franchise that
-# ever held the lineal belt; obscure 1920s one-off clubs fall back to their code.
+# Relocated-franchise codes -> one canonical (538-style) franchise code.
+CANON = {"LA": "LAR", "STL": "LAR", "SD": "LAC", "LV": "OAK", "WAS": "WSH"}
+
+
+def _canon(code: str) -> str:
+    c = (code or "").strip().upper()
+    return CANON.get(c, c)
+
+
+# Canonical franchise code -> display name (modern 32 + historical belt-holders).
 NAMES = {
-    # Modern 32
     "ARI": "Arizona Cardinals", "ATL": "Atlanta Falcons", "BAL": "Baltimore Ravens",
     "BUF": "Buffalo Bills", "CAR": "Carolina Panthers", "CHI": "Chicago Bears",
     "CIN": "Cincinnati Bengals", "CLE": "Cleveland Browns", "DAL": "Dallas Cowboys",
@@ -54,65 +63,85 @@ NAMES = {
     "OAK": "Las Vegas Raiders", "PHI": "Philadelphia Eagles", "PIT": "Pittsburgh Steelers",
     "SEA": "Seattle Seahawks", "SF": "San Francisco 49ers", "TB": "Tampa Bay Buccaneers",
     "TEN": "Tennessee Titans", "WSH": "Washington Commanders",
-    # Historical belt-holders
     "AKR": "Akron Pros", "BFF": "Buffalo All-Americans", "BKN": "Brooklyn Dodgers",
     "BYK": "Brooklyn Yankees", "CBD": "Canton Bulldogs", "CIB": "Cleveland Bulldogs",
     "DAY": "Dayton Triangles", "DTX": "Dallas Texans", "FYJ": "Frankford Yellow Jackets",
     "NYA": "New York Yankees (NFL)", "NYY": "New York Yanks", "PRV": "Providence Steam Roller",
     "PTB": "Pottsville Maroons", "RII": "Rock Island Independents", "STG": "Phil-Pitt Steagles",
-    # Common older opponents
     "COL": "Columbus Tigers", "RAC": "Racine Legion", "MIL": "Milwaukee Badgers",
     "DUL": "Duluth Eskimos", "HAM": "Hammond Pros", "TOL": "Toledo Maroons",
-    "KCB": "Kansas City Blues", "HRT": "Hartford Blues", "PTQ": "Pottsville Maroons",
 }
 
 _TEAM_NAMES: dict[str, str] = {}
 
 
-def _cache_path(cache_dir: Path) -> Path:
+def _record(code: str, raw: str) -> str:
+    _TEAM_NAMES[code] = NAMES.get(code, raw)
+    return code
+
+
+def _load_538(cache_dir: Path) -> str:
     cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir / "nfl_games.csv"
-
-
-def _load_csv(cache_dir: Path) -> str:
-    cf = _cache_path(cache_dir)
-    # The 538 file is frozen, so once cached it never needs re-fetching.
-    if cf.exists() and cf.stat().st_size > 0:
+    cf = cache_dir / "nfl_games.csv"
+    if cf.exists() and cf.stat().st_size > 0:   # frozen — cache forever
         return cf.read_text(encoding="utf-8")
-    r = requests.get(CSV_URL, headers=HEADERS, timeout=90)
-    r.raise_for_status()
-    text = r.text
-    cf.write_text(text, encoding="utf-8")
-    return text
+    r = requests.get(CSV_538, headers=HEADERS, timeout=90); r.raise_for_status()
+    cf.write_text(r.text, encoding="utf-8")
+    return r.text
+
+
+def _load_nflverse() -> str:
+    # Always fetched fresh — this feed updates after every game.
+    r = requests.get(CSV_NFLVERSE, headers=HEADERS, timeout=90); r.raise_for_status()
+    return r.text
 
 
 def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
-    text = _load_csv(cache_dir)
     out: list[Game] = []
-    reader = csv.DictReader(io.StringIO(text))
-    for i, row in enumerate(reader):
-        date = (row.get("date") or "").strip()
-        t1 = (row.get("team1") or "").strip()
-        t2 = (row.get("team2") or "").strip()
-        s1 = (row.get("score1") or "").strip()
-        s2 = (row.get("score2") or "").strip()
-        if not date or not t1 or not t2 or s1 == "" or s2 == "":
-            continue
-        if not (start <= date[:10] <= end):
-            continue
-        try:
-            hs, as_ = int(s1), int(s2)
-        except ValueError:
-            continue
-        h_id, a_id = norm(t1), norm(t2)
-        _TEAM_NAMES[h_id] = NAMES.get(h_id, t1)
-        _TEAM_NAMES[a_id] = NAMES.get(a_id, t2)
-        out.append(Game(id=f"FTE-NFL-{i}", date=f"{date[:10]}T00:00:00Z",
-                        home_id=h_id, away_id=a_id, home_score=hs, away_score=as_))
-    print(f"  NFL: {len(out)} games from 538 nfl_games.csv", flush=True)
+    lo, hi = start[:10], end[:10]
+
+    # 1920–1998 from 538 (only if the requested window reaches that far back).
+    if lo < SPLICE:
+        for i, r in enumerate(csv.DictReader(io.StringIO(_load_538(cache_dir)))):
+            d = (r.get("date") or "")[:10]
+            if not d or d >= SPLICE or not (lo <= d <= hi):
+                continue
+            try:
+                hs, as_ = int(r["score1"]), int(r["score2"])
+            except (ValueError, KeyError):
+                continue
+            h = _record(_canon(r["team1"]), r["team1"])
+            a = _record(_canon(r["team2"]), r["team2"])
+            out.append(Game(id=f"FTE-NFL-{i}", date=f"{d}T00:00:00Z",
+                            home_id=h, away_id=a, home_score=hs, away_score=as_))
+
+    # 1999–today from nflverse (completed games only; future rows have no score).
+    try:
+        nv = _load_nflverse()
+    except Exception as exc:
+        print(f"  NFL: nflverse fetch failed ({exc}); using 538 history only", flush=True)
+        nv = ""
+    if nv:
+        for r in csv.DictReader(io.StringIO(nv)):
+            d = (r.get("gameday") or "")[:10]
+            if not d or d < SPLICE or not (lo <= d <= hi):
+                continue
+            hs, as_ = (r.get("home_score") or "").strip(), (r.get("away_score") or "").strip()
+            if hs == "" or as_ == "":
+                continue
+            try:
+                hs, as_ = int(hs), int(as_)
+            except ValueError:
+                continue
+            h = _record(_canon(r["home_team"]), r["home_team"])
+            a = _record(_canon(r["away_team"]), r["away_team"])
+            out.append(Game(id=(r.get("game_id") or f"NFLV-{d}-{h}-{a}"),
+                            date=f"{d}T00:00:00Z",
+                            home_id=h, away_id=a, home_score=hs, away_score=as_))
+
+    print(f"  NFL: {len(out)} games (538 pre-1999 + nflverse 1999→today)", flush=True)
     return out
 
 
 def team_brand() -> dict:
-    """Display-name map for every club seen in this build."""
     return {code: {"name": name} for code, name in sorted(_TEAM_NAMES.items())}
