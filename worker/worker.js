@@ -2816,7 +2816,15 @@ const PUBLIC_HTML = `<!doctype html>
       list = list.filter(function(e){ return new Date(e.date) <= cut; });
     }
     var isBoxing = isBoxingCode(league);
-    t.innerHTML = list.slice(0, 500).map(function(ev){
+    // When a what-if is active, this list still shows the REAL results — flag it
+    // so it's clear the timeline below isn't part of the alternate history.
+    var note = (CASCADE || BRANCH_TRUNCATION)
+      ? '<div style="padding:11px 14px;margin-bottom:6px;border-left:2px solid var(--accent,#e1ad66);'
+        + 'background:rgba(194,141,65,0.08);color:var(--accent-soft,#facb8d);font-size:13px;line-height:1.5">'
+        + 'A what-if is active above. These are the <strong>real title fights</strong> — history as it '
+        + 'actually happened, unchanged by the alternate timeline.</div>'
+      : '';
+    t.innerHTML = note + (list.slice(0, 500).map(function(ev){
       var cls = 'ev ' + (ev.change ? 'loss change' : (ev.result === 'W' ? 'win' : 'loss'));
       var pill = ev.change ? 'NEW CHAMP' : (ev.result === 'W' ? 'DEFENDED' : 'LOST');
       var scoreTxt = isBoxing
@@ -2831,7 +2839,7 @@ const PUBLIC_HTML = `<!doctype html>
         + '<span class="pill">'+pill+'</span>'
         + '<span class="desc">'+desc+'</span>'
         + '</div>';
-    }).join('') || '<div style="padding:14px;color:var(--text-dim)">No events available yet for this league.</div>';
+    }).join('') || '<div style="padding:14px;color:var(--text-dim)">No events available yet for this league.</div>');
   }
 
   el('toggleTimeline').addEventListener('click', function(){
