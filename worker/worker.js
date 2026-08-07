@@ -88,6 +88,38 @@ export default {
         );
       }
 
+      // Counterfactual timeline: flip one real game and re-run the belt forward
+      // through every actual result. ?league=X&flip=<gameId> (optional — with
+      // no flip it just recomputes canon from the raw games, useful to verify
+      // the stored chain). Returns { current, changes, flip, available }.
+      if (url.pathname === "/api/whatif") {
+        const league = leagueFrom(url); guardLeague(league);
+        const flipId = url.searchParams.get("flip");
+        const stat = await env.KV.get(`${league}:static`, { type: "json" });
+        const raw = await env.KV.get(`${league}:games`, { type: "json" });
+        if (!stat) return cors.json({ error: `no lineage for ${league}` }, 404);
+        if (!raw || !Array.isArray(raw.games)) {
+          return cors.json({ error: `no game log stored for ${league}`, available: false }, 404);
+        }
+        const games = raw.games.map((r) => ({
+          id: r[0], date: r[1], home: { id: r[2] }, away: { id: r[3] },
+          homeScore: r[4], awayScore: r[5],
+        }));
+        let flip = null;
+        if (flipId) {
+          const g = games.find((x) => String(x.id) === String(flipId));
+          if (!g) return cors.json({ error: `game ${flipId} not found`, available: true }, 404);
+          const t = g.homeScore; g.homeScore = g.awayScore; g.awayScore = t; // reverse the result
+          flip = { id: g.id, date: g.date, home: g.home.id, away: g.away.id };
+        }
+        const res = computeLineageLapse(games, stat.seedTeam, stat.seedDate);
+        return cors.json({
+          league, available: true, flip,
+          seedTeam: stat.seedTeam, asOfDate: raw.asOfDate,
+          current: res.current, changes: res.changes,
+        }, 200);
+      }
+
       if (url.pathname === "/api/brand") {
         const league = leagueFrom(url); guardLeague(league);
         return await cached(request, ctx, 3600, async () =>
@@ -133,6 +165,22 @@ export default {
         }));
         await invalidateLineageCache(url, league);
         return cors.json({ ok: true, league, eventCount: body.events.length });
+      }
+
+      if (url.pathname === "/admin/upload-games") {
+        guardAdmin(request, env, cors);
+        const league = leagueFrom(url); guardLeague(league);
+        const body = await safeJSON(request);
+        if (!body || !Array.isArray(body.games)) {
+          return cors.json({ error: "Body must include {asOfDate, games:[[id,date,home,away,hs,as],...]}" }, 400);
+        }
+        await env.KV.put(`${league}:games`, JSON.stringify({
+          league,
+          asOfDate: body.asOfDate || today(),
+          games: body.games,
+          uploadedAt: new Date().toISOString(),
+        }));
+        return cors.json({ ok: true, league, gameCount: body.games.length });
       }
 
       if (url.pathname === "/admin/status") {
@@ -420,6 +468,56 @@ function winner(g) {
 function scoreline(g) { return (g.homeScore != null && g.awayScore != null) ? `${g.homeScore}-${g.awayScore}` : null; }
 function iso(s) { try { return new Date(s).toISOString(); } catch { return s; } }
 function norm(s) { return String(s || "").toUpperCase().replace(/\s+/g, ""); }
+
+/* ─── Counterfactual recompute ("what if?") ─────────────────────────────────
+ * A faithful port of linealchamp-data/lineage.py compute_lineage, INCLUDING
+ * the inactivity-lapse rule (the plain computeLineage above omits it). Given
+ * the full game log for a league and the canonical seed, it walks the belt
+ * forward exactly as the offline builder did — so recomputing with no changes
+ * reproduces the live chain, and recomputing after flipping ONE game's result
+ * yields the true alternate timeline (the belt cascades through whoever really
+ * won each subsequent game). Returns only { current, changes } — enough for
+ * the client to re-render an alternate timeline; events aren't needed. */
+const LAPSE_DAYS = 365;
+function computeLineageLapse(games, seedTeam, seedDate) {
+  const toDt = (s) => { const t = Date.parse(s); return Number.isNaN(t) ? null : t; };
+  games = games.slice().sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  let champ = seedTeam || null;
+  const changes = [];
+  if (champ) {
+    changes.push({ date: iso(seedDate || (games[0] && games[0].date)), gameId: null, from: null, to: champ, seed: true });
+  } else {
+    for (const g of games) {
+      const w = winner(g);
+      if (w) { champ = w; changes.push({ date: iso(g.date), gameId: g.id, from: null, to: champ, score: scoreline(g), seed: true }); break; }
+    }
+  }
+  if (!champ) return { current: null, changes: [] };
+
+  let champLast = toDt(seedDate) || toDt(games[0] && games[0].date);
+  for (const g of games) {
+    const w = winner(g);
+    if (w === null) continue;
+    const hId = g.home.id, aId = g.away.id;
+    const champPlays = champ === hId || champ === aId;
+    const gd = toDt(g.date);
+    // Inactivity lapse: holder hasn't appeared in over a year and isn't in
+    // this game — belt vacates to this game's winner (not a head-to-head loss).
+    if (!champPlays && champLast != null && gd != null && (gd - champLast) / 86400000 > LAPSE_DAYS) {
+      changes.push({ date: iso(g.date), gameId: g.id, from: champ, to: w, lapsed: true });
+      champ = w; champLast = gd; continue;
+    }
+    if (!champPlays) continue;
+    const champScore = champ === hId ? g.homeScore : g.awayScore;
+    const oppScore = champ === hId ? g.awayScore : g.homeScore;
+    champLast = gd;
+    if (w !== champ) {
+      changes.push({ date: iso(g.date), gameId: g.id, from: champ, to: w, score: `${champScore}-${oppScore}` });
+      champ = w; champLast = gd;
+    }
+  }
+  return { current: champ, changes };
+}
 
 /* ─── Incremental update (cron) ────────────────────────────────────────── */
 

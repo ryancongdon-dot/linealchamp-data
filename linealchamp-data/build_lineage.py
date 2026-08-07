@@ -119,9 +119,22 @@ def build_one_league(league: str, as_of: str) -> dict:
         "asOfDate": as_of,
         "events": [e.to_json() for e in events],
     }
+    # Full game log (compact rows) so the Worker can recompute counterfactual
+    # "what if?" timelines — flip one real result and re-run the belt forward
+    # through every actual game. Rows are [id, date, home, away, homeScore,
+    # awayScore]; the array-of-arrays form keeps the file small enough for KV.
+    games_payload = {
+        "league": league,
+        "asOfDate": as_of,
+        "games": [
+            [g.id, g.date[:10], g.home_id, g.away_id, g.home_score, g.away_score]
+            for g in games
+        ],
+    }
 
     write_json(OUTPUT_DIR / f"lineage-{league}.json", lineage_payload)
     write_json(OUTPUT_DIR / f"events-{league}.json", events_payload)
+    write_json(OUTPUT_DIR / f"games-{league}.json", games_payload)
 
     print(
         f"  → {len(changes)} belt changes, {len(events)} events, "
