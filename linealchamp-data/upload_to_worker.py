@@ -75,6 +75,8 @@ def main() -> int:
     p.add_argument("--leagues", default="NBA,NFL,MLB,NHL,EPL,CFB")
     p.add_argument("--skip-events", action="store_true",
                    help="Only push lineage (small); skip events (large).")
+    p.add_argument("--skip-games", action="store_true",
+                   help="Skip the full game log (large; powers the what-if recompute).")
     p.add_argument("--only-events", action="store_true",
                    help="Only push events; skip lineage.")
     p.add_argument("--force", action="store_true",
@@ -141,6 +143,25 @@ def main() -> int:
                     all_ok = False
                     continue
                 ok = _post(args.base_url, "/admin/upload-events", L, body, args.admin_secret)
+                all_ok = all_ok and ok
+
+        if not args.skip_games:
+            f = OUTPUT / f"games-{L}.json"
+            if not f.exists():
+                print(f"  {L}: missing {f} (games) — skipping", file=sys.stderr)
+            else:
+                body = json.loads(f.read_text())
+                size_mb = f.stat().st_size / (1024 * 1024)
+                if size_mb > 24:
+                    print(
+                        f"  {L}: games file is {size_mb:.1f} MB — Cloudflare KV "
+                        f"caps a single value at 25 MB. Skipping (the what-if "
+                        f"recompute for this league needs R2 or chunking).",
+                        file=sys.stderr,
+                    )
+                    all_ok = False
+                    continue
+                ok = _post(args.base_url, "/admin/upload-games", L, body, args.admin_secret)
                 all_ok = all_ok and ok
 
     return 0 if all_ok else 1
