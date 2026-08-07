@@ -2261,52 +2261,73 @@ const PUBLIC_HTML = `<!doctype html>
   }
 
   async function openCascadeModal(){
-    showModal('What if? — rewrite a real game',
-      'Flip a game the champion actually won; the belt then follows what really happened next.',
+    showModal('What if? — rewrite any title game',
+      'Scroll the full title-game history and flip any result — the belt cascades forward from there.',
       '<div class="whatif-intro"><p>Loading games…</p></div>');
     await loadEventsIfNeeded();
-    var champName = brandFor(CANONICAL_CHAMP).name;
-    // Current reign start = last canonical belt change TO the current champ.
-    var canon = CANONICAL_CHANGES || [];
-    var reignStart = null;
-    for (var i = canon.length - 1; i >= 0; i--) {
-      if (canon[i].to === CANONICAL_CHAMP) { reignStart = canon[i].date; break; }
-    }
-    var defenses = (EVENTS || []).filter(function(ev){
-      return ev.champ === CANONICAL_CHAMP && ev.result === 'W' && (!reignStart || ev.date >= reignStart);
-    }).sort(function(a, b){ return new Date(b.date) - new Date(a.date); });
-
-    var intro = '<div class="whatif-intro">'
-      + '<p>The current lineal champion is <strong>' + escapeHTML(champName) + '</strong>. '
-      + 'Pick one of their real wins and we’ll flip it — that opponent takes the belt, and from '
-      + 'there the title follows <em>actual results</em>: whoever really beat them next takes it, and so '
-      + 'on, right up to today.</p>'
-      + (CASCADE ? '<p style="font-size:12px;color:var(--text-dim)">An alternate timeline is active. Pick another game to replace it, or Reset from the banner above the tracker.</p>' : '')
-      + '</div>';
-    if (!defenses.length) {
-      showModal('What if? — rewrite a real game', '',
-        intro + '<p style="color:var(--text-dim)">No flippable wins found in this champion’s current reign.</p>');
+    var evs = (EVENTS || []).slice().sort(function(a, b){ return new Date(b.date) - new Date(a.date); });
+    if (!evs.length) {
+      showModal('What if? — rewrite any title game', '',
+        '<p style="color:var(--text-dim)">No title games are recorded for this league yet.</p>');
       return;
     }
-    var rows = defenses.slice(0, 60).map(function(ev){
-      var opp = brandFor(ev.opponent);
-      var sc = (ev.champScore != null && ev.oppScore != null) ? ' · ' + ev.champScore + '–' + ev.oppScore : '';
-      return '<label class="whatif-row" data-game="' + escapeHTML(String(ev.gameId)) + '" data-opp="' + escapeHTML(opp.name) + '" data-date="' + ev.date + '">'
+    // Precompute display + a lowercase search haystack once, so filtering a big
+    // history (MLB has 20k+ title games) stays instant on every keystroke.
+    var ITEMS = evs.map(function(ev){
+      var champWon = ev.result === 'W';
+      var wn = brandFor(champWon ? ev.champ : ev.opponent).name;
+      var ln = brandFor(champWon ? ev.opponent : ev.champ).name;
+      var score = (ev.champScore != null && ev.oppScore != null)
+        ? (champWon ? ev.champScore + '–' + ev.oppScore : ev.oppScore + '–' + ev.champScore) : '';
+      return { id: ev.gameId, date: ev.date, wn: wn, ln: ln, score: score,
+               hay: (ev.date + ' ' + wn + ' ' + ln).toLowerCase() };
+    });
+
+    var intro = '<div class="whatif-intro">'
+      + '<p>Every row below is a real title game, most recent first. Flip any one — the '
+      + 'loser wins instead — and from that moment the belt follows <em>actual results</em> '
+      + 'forward, right up to today.</p>'
+      + (CASCADE ? '<p style="font-size:12px;color:var(--text-dim)">An alternate timeline is active. Pick another game to replace it, or Reset from the banner above the tracker.</p>' : '')
+      + '</div>'
+      + '<input id="wfFilter" autocomplete="off" placeholder="Jump to a year or team — e.g. 1999 or Cowboys" '
+      + 'style="width:100%;padding:10px 12px;margin:2px 0 6px;background:var(--bg-elev);'
+      + 'border:1px solid var(--border);color:var(--text);border-radius:var(--r);font-size:14px;'
+      + 'outline:none;font-family:var(--font-body)"/>'
+      + '<div id="wfCount" style="font-size:12px;color:var(--text-dim);margin:0 0 8px;letter-spacing:.04em"></div>'
+      + '<div class="whatif-list" id="wfList" style="max-height:52vh;overflow-y:auto"></div>';
+    showModal('What if? — rewrite any title game',
+      ITEMS.length.toLocaleString() + ' title games on record', intro);
+
+    var LIMIT = 300;
+    function rowHtml(it){
+      return '<label class="whatif-row" data-game="' + escapeHTML(String(it.id)) + '" '
+        + 'data-winner="' + escapeHTML(it.wn) + '" data-loser="' + escapeHTML(it.ln) + '" data-date="' + it.date + '">'
         + '<div class="whatif-text">'
-        + '<div class="whatif-name">' + escapeHTML(champName) + ' def. ' + escapeHTML(opp.name) + '</div>'
-        + '<div class="whatif-summary">' + fmtDate(ev.date) + sc + '</div>'
-        + '<p>Flip it → ' + escapeHTML(opp.name) + ' win and take the belt.</p>'
+        + '<div class="whatif-name">' + escapeHTML(it.wn) + ' <span style="color:var(--n-500,#9b9797)">def.</span> ' + escapeHTML(it.ln) + '</div>'
+        + '<div class="whatif-summary">' + fmtDate(it.date) + (it.score ? ' · ' + it.score : '') + '</div>'
+        + '<p>Flip → ' + escapeHTML(it.ln) + ' win; belt cascades from here.</p>'
         + '</div></label>';
-    }).join('');
-    showModal('What if? — rewrite a real game',
-      defenses.length + ' win' + (defenses.length === 1 ? '' : 's') + ' in ' + champName + '’s current reign',
-      intro + '<div class="whatif-list">' + rows + '</div>');
+    }
+    function render(q){
+      q = (q || '').trim().toLowerCase();
+      var list = q ? ITEMS.filter(function(it){ return it.hay.indexOf(q) !== -1; }) : ITEMS;
+      var shown = list.slice(0, LIMIT);
+      el('wfList').innerHTML = shown.map(rowHtml).join('')
+        || '<p style="color:var(--text-dim)">No title games match “' + escapeHTML(q) + '”.</p>';
+      el('wfCount').textContent = list.length > shown.length
+        ? ('Showing ' + shown.length + ' of ' + list.length.toLocaleString() + ' — type a year or team to narrow')
+        : (list.length.toLocaleString() + ' game' + (list.length === 1 ? '' : 's'));
+    }
+    render('');
     setTimeout(function(){
-      document.querySelectorAll('.whatif-row[data-game]').forEach(function(row){
-        row.addEventListener('click', function(){
-          doCascade(row.getAttribute('data-game'), row.getAttribute('data-opp'),
-                    row.getAttribute('data-date'), champName);
-        });
+      var f = el('wfFilter');
+      if (f) f.addEventListener('input', function(){ render(f.value); });
+      var listEl = el('wfList');
+      if (listEl) listEl.addEventListener('click', function(e){
+        var row = e.target.closest ? e.target.closest('.whatif-row[data-game]') : null;
+        if (!row) return;
+        doCascade(row.getAttribute('data-game'), row.getAttribute('data-loser'),
+                  row.getAttribute('data-date'), row.getAttribute('data-winner'));
       });
     }, 0);
   }
