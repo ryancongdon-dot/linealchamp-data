@@ -68,6 +68,52 @@ def _post(base: str, path: str, league: str, body: dict, secret: str) -> bool:
     return False
 
 
+# Cloudflare KV caps a single value at 25 MB. Keep each chunk well under that
+# (JSON wrapper + overhead included) and split the game log across cells when a
+# league's history is too big for one — the Worker stitches them back together.
+_KV_SINGLE_MAX_BYTES = 20 * 1024 * 1024
+_CHUNK_TARGET_BYTES = 15 * 1024 * 1024
+
+
+def _post_games_chunk(base: str, league: str, body: dict, secret: str,
+                      chunk: int, chunks: int, total: int) -> bool:
+    url = (f"{base}/admin/upload-games?league={league}"
+           f"&chunk={chunk}&chunks={chunks}&total={total}")
+    r = requests.post(
+        url,
+        headers={"x-admin-secret": secret, "content-type": "application/json"},
+        data=json.dumps(body),
+        timeout=180,
+    )
+    if r.ok:
+        print(f"  {league:4} ✓ /admin/upload-games chunk {chunk + 1}/{chunks}  "
+              f"{len(body.get('games') or [])} games")
+        return True
+    print(f"  {league:4} ✗ /admin/upload-games chunk {chunk + 1}/{chunks}  "
+          f"{r.status_code}  {r.text[:200]}", file=sys.stderr)
+    return False
+
+
+def _upload_games(base: str, league: str, body: dict, secret: str, size_bytes: int) -> bool:
+    """Upload the full game log, splitting into KV-sized chunks when needed."""
+    games = body.get("games") or []
+    as_of = body.get("asOfDate")
+    total = len(games)
+    if size_bytes <= _KV_SINGLE_MAX_BYTES or total == 0:
+        return _post(base, "/admin/upload-games", league, body, secret)
+    # Split by game count, sized from the file's bytes-per-game.
+    per_game = max(1, size_bytes // total)
+    per_chunk = max(1, _CHUNK_TARGET_BYTES // per_game)
+    nchunks = (total + per_chunk - 1) // per_chunk
+    print(f"  {league:4} game log is {size_bytes / (1024 * 1024):.1f} MB — "
+          f"splitting into {nchunks} chunks of ~{per_chunk} games")
+    ok = True
+    for i in range(nchunks):
+        part = {"asOfDate": as_of, "games": games[i * per_chunk:(i + 1) * per_chunk]}
+        ok = _post_games_chunk(base, league, part, secret, i, nchunks, total) and ok
+    return ok
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--base-url", default=DEFAULT_BASE)
@@ -151,17 +197,7 @@ def main() -> int:
                 print(f"  {L}: missing {f} (games) — skipping", file=sys.stderr)
             else:
                 body = json.loads(f.read_text())
-                size_mb = f.stat().st_size / (1024 * 1024)
-                if size_mb > 24:
-                    print(
-                        f"  {L}: games file is {size_mb:.1f} MB — Cloudflare KV "
-                        f"caps a single value at 25 MB. Skipping (the what-if "
-                        f"recompute for this league needs R2 or chunking).",
-                        file=sys.stderr,
-                    )
-                    all_ok = False
-                    continue
-                ok = _post(args.base_url, "/admin/upload-games", L, body, args.admin_secret)
+                ok = _upload_games(args.base_url, L, body, args.admin_secret, f.stat().st_size)
                 all_ok = all_ok and ok
 
     return 0 if all_ok else 1

@@ -101,12 +101,29 @@ export default {
           return cors.json({ league, available: !!meta, count: meta ? meta.count : 0 }, 200);
         }
         const stat = await env.KV.get(`${league}:static`, { type: "json" });
-        const raw = await env.KV.get(`${league}:games`, { type: "json" });
         if (!stat) return cors.json({ error: `no lineage for ${league}` }, 404);
-        if (!raw || !Array.isArray(raw.games)) {
+        // Read the game log — a single cell, or N chunks stitched back together
+        // for leagues too big for KV's 25 MB per-value cap.
+        const gmeta = await env.KV.get(`${league}:gamesMeta`, { type: "json" });
+        let rows = null, asOfGames = null;
+        if (gmeta && gmeta.chunks && gmeta.chunks > 1) {
+          rows = [];
+          for (let i = 0; i < gmeta.chunks; i++) {
+            const part = await env.KV.get(`${league}:games:${i}`, { type: "json" });
+            if (!part || !Array.isArray(part.games)) {
+              return cors.json({ error: `game log chunk ${i}/${gmeta.chunks} missing for ${league}`, available: false }, 404);
+            }
+            for (const r of part.games) rows.push(r);
+          }
+          asOfGames = gmeta.asOfDate;
+        } else {
+          const raw = await env.KV.get(`${league}:games`, { type: "json" });
+          if (raw && Array.isArray(raw.games)) { rows = raw.games; asOfGames = raw.asOfDate; }
+        }
+        if (!rows) {
           return cors.json({ error: `no game log stored for ${league}`, available: false }, 404);
         }
-        const games = raw.games.map((r) => ({
+        const games = rows.map((r) => ({
           id: r[0], date: r[1], home: { id: r[2] }, away: { id: r[3] },
           homeScore: r[4], awayScore: r[5],
         }));
@@ -120,7 +137,7 @@ export default {
         const res = computeLineageLapse(games, stat.seedTeam, stat.seedDate);
         return cors.json({
           league, available: true, flip,
-          seedTeam: stat.seedTeam, asOfDate: raw.asOfDate,
+          seedTeam: stat.seedTeam, asOfDate: asOfGames,
           current: res.current, changes: res.changes,
         }, 200);
       }
@@ -179,18 +196,31 @@ export default {
         if (!body || !Array.isArray(body.games)) {
           return cors.json({ error: "Body must include {asOfDate, games:[[id,date,home,away,hs,as],...]}" }, 400);
         }
-        await env.KV.put(`${league}:games`, JSON.stringify({
-          league,
-          asOfDate: body.asOfDate || today(),
-          games: body.games,
-          uploadedAt: new Date().toISOString(),
+        const asOf = body.asOfDate || today();
+        // Big leagues exceed KV's 25 MB per-value cap, so the uploader may split
+        // the game log across N cells: /admin/upload-games?chunk=i&chunks=N&total=M.
+        // gamesMeta records how many chunks to stitch back together at read time.
+        const chunks = Math.max(1, parseInt(url.searchParams.get("chunks") || "1", 10));
+        if (chunks <= 1) {
+          await env.KV.put(`${league}:games`, JSON.stringify({
+            league, asOfDate: asOf, games: body.games, uploadedAt: new Date().toISOString(),
+          }));
+          await env.KV.put(`${league}:gamesMeta`, JSON.stringify({
+            count: body.games.length, chunks: 1, asOfDate: asOf,
+          }));
+          return cors.json({ ok: true, league, gameCount: body.games.length, chunks: 1 });
+        }
+        const chunk = Math.max(0, parseInt(url.searchParams.get("chunk") || "0", 10));
+        const total = parseInt(url.searchParams.get("total") || String(body.games.length), 10);
+        await env.KV.put(`${league}:games:${chunk}`, JSON.stringify({
+          league, chunk, chunks, games: body.games,
         }));
-        // Tiny companion key so the client can check "is the cascade available
-        // for this league?" without reading the whole (possibly multi-MB) log.
+        // Meta is written on every chunk (idempotent) so a resumed/retried
+        // upload always leaves it consistent with the declared chunk count.
         await env.KV.put(`${league}:gamesMeta`, JSON.stringify({
-          count: body.games.length, asOfDate: body.asOfDate || today(),
+          count: total, chunks, asOfDate: asOf,
         }));
-        return cors.json({ ok: true, league, gameCount: body.games.length });
+        return cors.json({ ok: true, league, chunk, chunks, chunkGames: body.games.length });
       }
 
       if (url.pathname === "/admin/status") {
