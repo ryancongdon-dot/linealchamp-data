@@ -1205,6 +1205,8 @@ const PUBLIC_HTML = `<!doctype html>
      these rules add the serif display type, editorial pills, and plate/hairline
      treatments that give the tracker the same publication feel. ── */
   .tracker { position: relative; }
+  .home-link { color: inherit; text-decoration: none; }
+  .home-link:hover { color: var(--accent-soft); }
   .about-link { background: transparent; border: 1px solid var(--border); color: var(--text-dim); }
   .about-link:hover { color: var(--accent-soft); border-color: var(--accent); }
 
@@ -1352,7 +1354,7 @@ const PUBLIC_HTML = `<!doctype html>
   .lc-fig { display:flex; flex-direction:column; gap:10px; }
   .lc-plate { padding:6px; filter:sepia(.22) saturate(.82) contrast(1.05);
     border:6px solid var(--surface); outline:1px solid var(--surface-hair); background:var(--surface); }
-  .lc-plate img { display:block; width:100%; aspect-ratio:3/4; object-fit:cover; }
+  .lc-plate img { display:block; width:100%; aspect-ratio:3/4; object-fit:cover; object-position:top; }
   .lc-fig .nm { font-family:var(--font-heading); font-size:17px; color:var(--display); line-height:1.2; }
   .lc-fig .yr { font-size:12px; letter-spacing:.12em; color:var(--accent-300); font-feature-settings:'tnum'; }
   .lc-line-foot { display:flex; align-items:center; margin-top:22px; }
@@ -1421,7 +1423,7 @@ const PUBLIC_HTML = `<!doctype html>
   <div class="landing" id="landing"><div class="lc">
 
     <header class="lc-header">
-      <div class="lc-brand"><span class="lc-mark"></span><span class="lc-wordmark">The Lineal Champ</span></div>
+      <a class="lc-brand" href="/"><span class="lc-mark"></span><span class="lc-wordmark">The Lineal Champ</span></a>
       <nav class="lc-nav">
         <a href="#story">The Rule</a>
         <a href="#line">The Line</a>
@@ -1530,7 +1532,7 @@ const PUBLIC_HTML = `<!doctype html>
   </div></div>
 
   <div class="tracker" id="tracker">
-  <h1>The Lineal Champ <button id="aboutBtn" class="about-link" title="About">?</button></h1>
+  <h1><a href="/" class="home-link" title="Back to home">The Lineal Champ</a> <button id="aboutBtn" class="about-link" title="About">?</button></h1>
   <div class="tabs" id="tabs"></div>
   <div class="branch-banner" id="branchBanner" style="display:none">
     <span class="banner-icon">🔀</span>
@@ -2240,7 +2242,10 @@ const PUBLIC_HTML = `<!doctype html>
       var vacNote = (last && last.note) ? escapeHTML(last.note) + ' ' : '';
       el('champSub').innerHTML = vacNote
         + 'Vacant since ' + fmtDate(last ? last.date : null)
-        + (lastReal ? ' — last held by ' + escapeHTML(brandFor(lastReal.to).name) : '') + '.';
+        + (lastReal ? ' — last held by ' + escapeHTML(brandFor(lastReal.to).name) : '') + '.'
+        + ' The lineal title only changes hands in the ring, so when a champion '
+        + 'retires or moves up in weight it stays vacant until a fight settles it '
+        + '— we don’t hand it to the next man by decree.';
     } else if (BRANCH_TRUNCATION) {
       var howEnded = BRANCH_TRUNCATION.undefeated ? 'retired undefeated' : 'retired as champion';
       el('champSub').innerHTML =
