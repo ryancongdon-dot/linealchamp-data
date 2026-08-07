@@ -1,167 +1,90 @@
 """
-NBA source — balldontlie historical /v1/games endpoint.
+NBA source — FiveThirtyEight's committed game log (a single CSV we own).
 
-BDL's NBA endpoint goes back to 1946 (the BAA's first season). Free tier has
-strict rate limits; cache aggressively.
+Why this instead of balldontlie: balldontlie's free tier rate-limits a cold
+full-history rebuild so hard it never finishes (a 2.5-hour run produced nothing).
+This source instead reads FiveThirtyEight's `nbaallelo.csv` — every BAA/NBA/ABA
+game from 1946 through the 2015 Finals, one flat CSV on GitHub. Frozen, so no
+rate limits and identical every run ("gather once, own the file").
 
-URL: https://api.balldontlie.io/v1/games
-Auth: Bearer header (header name: Authorization)
+    https://github.com/fivethirtyeight/data  (nba-elo/nbaallelo.csv)
 
-Response shape (verified working in the user's existing Worker):
-    {
-      "data": [
-        {
-          "id": 12345,
-          "date": "2024-04-14",
-          "season": 2023,
-          "postseason": false,
-          "home_team":     { "abbreviation": "BOS", "full_name": "Boston Celtics", ... },
-          "visitor_team":  { "abbreviation": "MIL", "full_name": "Milwaukee Bucks", ... },
-          "home_team_score": 132,
-          "visitor_team_score": 119,
-          "status": "Final"
-        }
-      ],
-      "meta": { "next_cursor": 12346 }
-    }
+Notes on the format:
+    - Every game appears TWICE (once per team); `_iscopy == 0` is the primary
+      row, so we keep only those to avoid double-counting.
+    - We use `fran_id` / `opp_fran` (franchise identity: "Warriors", "Lakers")
+      rather than the season team code, so a franchise keeps one lineal identity
+      across relocations — the whole point of "the man who beat the man".
+    - `date_game` is M/D/YYYY; `pts` / `opp_pts` are final scores (no ties).
 
-Note: 'visitor_team' is the away team, not 'away_team'. The existing Worker
-adapter uses this correctly for NBA; the bug was only on the NFL/EPL endpoints
-(which we treat separately).
+Coverage ends with the 2015 Finals (538's data is frozen there), so the NBA
+"current" champion is as of June 2015; recent seasons can be spliced on later.
 """
 
 from __future__ import annotations
 
-import json
-import os
-import time
+import csv
+import io
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import requests
 
 from lineage import Game, norm
-from sources.util import cache_is_complete, get_with_backoff, is_recent, looks_final
 
-SEED_TEAM = norm("PHW")  # Philadelphia Warriors — 1947 BAA Finals winner
+# Philadelphia Warriors — 1947 BAA Finals winner (the "Warriors" franchise).
+SEED_TEAM = norm("Warriors")
 SEED_DATE = "1947-04-22"
 
-BDL_URL = "https://api.balldontlie.io/v1/games"
-RATE_DELAY_SEC = 0.4
+CSV_URL = "https://raw.githubusercontent.com/fivethirtyeight/data/master/nba-elo/nbaallelo.csv"
+HEADERS = {"User-Agent": "linealchamp-data/1.0 (historical backfill)"}
+
+_TEAM_NAMES: dict[str, str] = {}
 
 
-def _api_key() -> str:
-    k = os.environ.get("BDL_API_KEY")
-    if not k:
-        raise RuntimeError("BDL_API_KEY env var required for NBA source.")
-    return k
-
-
-def _cache_path(cache_dir: Path, start: str, end: str, postseason: bool) -> Path:
+def _cache_path(cache_dir: Path) -> Path:
     cache_dir.mkdir(parents=True, exist_ok=True)
-    suffix = "post" if postseason else "reg"
-    return cache_dir / f"{start}_{end}_{suffix}.json"
+    return cache_dir / "nbaallelo.csv"
 
 
-def _fetch_window(start: str, end: str, postseason: bool, cache_dir: Path) -> list[dict]:
-    cf = _cache_path(cache_dir, start, end, postseason)
-    if cache_is_complete(cf, end):
-        try:
-            return json.loads(cf.read_text())
-        except Exception:
-            pass
-
-    all_items: list[dict] = []
-    cursor: Optional[str] = None
-    safety = 0
-    while True:
-        params = {
-            "per_page": "100",
-            "start_date": start,
-            "end_date": end,
-            "postseason": "true" if postseason else "false",
-        }
-        if cursor is not None:
-            params["cursor"] = str(cursor)
-        r = get_with_backoff(
-            BDL_URL,
-            params,
-            headers={
-                "Authorization": f"Bearer {_api_key()}",
-                "Accept": "application/json",
-            },
-            label=f"NBA {start}",
-        )
-        r.raise_for_status()
-        j = r.json()
-        all_items.extend(j.get("data", []))
-        nxt = (j.get("meta") or {}).get("next_cursor")
-        if not nxt:
-            break
-        cursor = nxt
-        safety += 1
-        if safety > 2000:
-            break
-        time.sleep(RATE_DELAY_SEC)
-    cf.write_text(json.dumps(all_items))
-    return all_items
+def _load_csv(cache_dir: Path) -> str:
+    cf = _cache_path(cache_dir)
+    if cf.exists() and cf.stat().st_size > 0:  # frozen file — cache never goes stale
+        return cf.read_text(encoding="utf-8")
+    r = requests.get(CSV_URL, headers=HEADERS, timeout=120)
+    r.raise_for_status()
+    cf.write_text(r.text, encoding="utf-8")
+    return r.text
 
 
 def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
-    """
-    Fetch in 1-year windows so cache files are reasonably sized and so
-    intermittent failures don't blow away a whole decade of work.
-    """
-    y0 = int(start[:4])
-    y1 = int(end[:4])
+    text = _load_csv(cache_dir)
     out: list[Game] = []
-    consecutive_failures = 0
-    for y in range(y0, y1 + 1):
-        window_start = max(start, f"{y}-01-01")
-        window_end = min(end, f"{y}-12-31")
-        for postseason in (False, True):
-            try:
-                items = _fetch_window(window_start, window_end, postseason, cache_dir)
-                consecutive_failures = 0
-            except Exception as exc:
-                print(f"  NBA {y} {'post' if postseason else 'reg'}: {exc}", flush=True)
-                consecutive_failures += 1
-                # Once the rate limit has beaten us several windows in a row it
-                # will beat us on every remaining one too — stop burning hours.
-                # Everything fetched so far is cached; the next run resumes here.
-                if consecutive_failures >= 4:
-                    print(
-                        f"  NBA: {consecutive_failures} consecutive window failures — "
-                        f"aborting this run. Cached progress is kept; the next run resumes.",
-                        flush=True,
-                    )
-                    return out
-                continue
-            for it in items:
-                home_team = it.get("home_team") or {}
-                vis_team = it.get("visitor_team") or {}
-                hs = it.get("home_team_score")
-                vs = it.get("visitor_team_score")
-                if hs is None or vs is None:
-                    continue
-                # Treat 0-0 unfinished games as missing (status check would be cleaner,
-                # but historical BDL data doesn't always populate status reliably).
-                if hs == 0 and vs == 0:
-                    continue
-                # Near the as-of date a game may still be in progress; require an
-                # explicit Final status there so partial scores never get recorded.
-                game_date = it.get("date") or f"{y}-01-01"
-                if is_recent(game_date, end) and not looks_final(it.get("status")):
-                    continue
-                out.append(
-                    Game(
-                        id=f"BDL-NBA-{it.get('id')}",
-                        date=it.get("date") or f"{y}-01-01",
-                        home_id=norm(home_team.get("abbreviation") or home_team.get("full_name") or "HOME"),
-                        away_id=norm(vis_team.get("abbreviation") or vis_team.get("full_name") or "AWAY"),
-                        home_score=int(hs),
-                        away_score=int(vs),
-                    )
-                )
-        print(f"  NBA {y}: cumulative {len(out)} games", flush=True)
+    for row in csv.DictReader(io.StringIO(text)):
+        if row.get("_iscopy") != "0":   # keep one row per game
+            continue
+        fran = (row.get("fran_id") or "").strip()
+        opp = (row.get("opp_fran") or "").strip()
+        dg = (row.get("date_game") or "").strip()
+        if not fran or not opp or not dg:
+            continue
+        try:
+            iso = datetime.strptime(dg, "%m/%d/%Y").strftime("%Y-%m-%d")
+            pts, opp_pts = int(row["pts"]), int(row["opp_pts"])
+        except (ValueError, KeyError):
+            continue
+        if not (start <= iso <= end):
+            continue
+        h_id, a_id = norm(fran), norm(opp)
+        _TEAM_NAMES[h_id] = fran
+        _TEAM_NAMES[a_id] = opp
+        out.append(Game(id=(row.get("game_id") or f"NBA-{iso}-{h_id}-{a_id}"),
+                        date=f"{iso}T00:00:00Z",
+                        home_id=h_id, away_id=a_id, home_score=pts, away_score=opp_pts))
+    print(f"  NBA: {len(out)} games from 538 nbaallelo.csv", flush=True)
     return out
+
+
+def team_brand() -> dict:
+    """Display-name map — franchise nicknames are already human-readable."""
+    return {code: {"name": name} for code, name in sorted(_TEAM_NAMES.items())}
