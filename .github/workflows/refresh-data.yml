@@ -1,78 +1,40 @@
 name: Refresh lineal data
 
-# Keeps each league current by INCREMENTAL catch-up (update_recent.py): read
-# the chain already on the Worker, fetch only the games since the last change,
-# extend it, re-upload. It does NOT re-download decades of history — past games
-# never change, so the old full-rebuild was pure waste and, for the
-# rate-limited EPL endpoint, is what dragged runs to 3h and drained the monthly
-# Actions budget.
+# Daily FULL rebuild for every league whose source is a fast, reliable feed.
+# Now that these sources are committed CSVs / clean APIs (not slow scrapes), a
+# full rebuild costs seconds, so we just re-run build_lineage + upload_to_worker
+# each day. Unlike the old incremental path, this also refreshes the complete
+# game log — so the "what if?" cascade stays current too, not just the belt.
 #
-# A full rebuild from a league's seed year is a separate, deliberate action:
-# run build_lineage.py + upload_to_worker.py by hand (locally or via the
-# Backfill workflow) only for a first backfill or a data correction.
+# Leagues:
+#   EPL  football-data.co.uk CSVs           (current)
+#   CFB  collegefootballdata API            (current)
+#   MLB  Retrosheet + MLB StatsAPI          (current)
+#   NFL  538 (1920-1998) + nflverse (1999+) (current)
+# NBA and NHL are intentionally excluded until they have a live feed: NBA's 538
+# CSV is frozen at 2015 and NHL has no working free source yet, so a daily
+# rebuild would just re-upload identical data.
 #
-# WEEKLY, not nightly: day-to-day currency already comes free from the Worker's
-# own Cloudflare cron; this only needs to catch completed seasons. 2,000 free
-# Actions minutes/month is plenty for a weekly incremental run.
+# The MIN_CHANGES floor in upload_to_worker refuses to overwrite good data with
+# a gutted chain if a source ever hiccups, so a bad fetch fails safe.
 #
 # Required repository secrets:
-#   BDL_API_KEY    balldontlie key (NBA + EPL)
 #   CFBD_API_KEY   collegefootballdata.com key (CFB)
 #   ADMIN_SECRET   the Worker's env.ADMIN_SECRET (authorizes the KV upload)
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 9 * * 1"
+    - cron: "17 9 * * *"   # 09:17 UTC daily — after US games finish
 
 concurrency: refresh-data
 
 jobs:
-  refresh-bdl:
+  refresh:
     strategy:
-      fail-fast: false
-      max-parallel: 1  # NBA and EPL share one balldontlie key — don't compete
+      fail-fast: false        # one league's hiccup must not block the others
       matrix:
-        league: [NBA, EPL]
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    defaults:
-      run:
-        working-directory: linealchamp-data
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - uses: actions/cache/restore@v4
-        with:
-          path: linealchamp-data/cache/${{ matrix.league }}
-          key: source-cache-v1-${{ matrix.league }}-${{ github.run_id }}
-          restore-keys: |
-            source-cache-v1-${{ matrix.league }}-
-      - run: pip install -r requirements.txt
-      - name: Incremental update (${{ matrix.league }})
-        env:
-          BDL_API_KEY: ${{ secrets.BDL_API_KEY }}
-          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
-        run: python update_recent.py --leagues ${{ matrix.league }}
-      # Bank the recent-season cache even on timeout, so a capped run still
-      # makes forward progress.
-      - uses: actions/cache/save@v4
-        if: always()
-        with:
-          path: linealchamp-data/cache/${{ matrix.league }}
-          key: source-cache-v1-${{ matrix.league }}-${{ github.run_id }}
-
-  refresh-other:
-    strategy:
-      fail-fast: false
-      matrix:
-        # NFL is deliberately excluded: its live chain (1933 Bears seed, 538
-        # changes) came from a separate Wikipedia-scraper pipeline with its
-        # own team codes; catching it up here would need that pipeline's
-        # source. Re-add once the pipelines are consolidated in this repo.
-        league: [MLB, NHL, CFB]
+        league: [EPL, CFB, MLB, NFL]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
@@ -86,17 +48,21 @@ jobs:
       - uses: actions/cache/restore@v4
         with:
           path: linealchamp-data/cache/${{ matrix.league }}
-          key: source-cache-v1-${{ matrix.league }}-${{ github.run_id }}
+          key: source-cache-v2-${{ matrix.league }}-${{ github.run_id }}
           restore-keys: |
-            source-cache-v1-${{ matrix.league }}-
+            source-cache-v2-${{ matrix.league }}-
       - run: pip install -r requirements.txt
-      - name: Incremental update (${{ matrix.league }})
+      - name: Build lineage (${{ matrix.league }})
         env:
           CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+        run: python build_lineage.py --leagues ${{ matrix.league }}
+      - name: Upload to Worker KV (${{ matrix.league }})
+        if: ${{ !cancelled() }}
+        env:
           ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
-        run: python update_recent.py --leagues ${{ matrix.league }}
+        run: python upload_to_worker.py --leagues ${{ matrix.league }}
       - uses: actions/cache/save@v4
         if: always()
         with:
           path: linealchamp-data/cache/${{ matrix.league }}
-          key: source-cache-v1-${{ matrix.league }}-${{ github.run_id }}
+          key: source-cache-v2-${{ matrix.league }}-${{ github.run_id }}
