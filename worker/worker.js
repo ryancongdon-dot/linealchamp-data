@@ -95,6 +95,11 @@ export default {
       if (url.pathname === "/api/whatif") {
         const league = leagueFrom(url); guardLeague(league);
         const flipId = url.searchParams.get("flip");
+        // Cheap availability probe — reads only the tiny meta key.
+        if (url.searchParams.get("check")) {
+          const meta = await env.KV.get(`${league}:gamesMeta`, { type: "json" });
+          return cors.json({ league, available: !!meta, count: meta ? meta.count : 0 }, 200);
+        }
         const stat = await env.KV.get(`${league}:static`, { type: "json" });
         const raw = await env.KV.get(`${league}:games`, { type: "json" });
         if (!stat) return cors.json({ error: `no lineage for ${league}` }, 404);
@@ -179,6 +184,11 @@ export default {
           asOfDate: body.asOfDate || today(),
           games: body.games,
           uploadedAt: new Date().toISOString(),
+        }));
+        // Tiny companion key so the client can check "is the cascade available
+        // for this league?" without reading the whole (possibly multi-MB) log.
+        await env.KV.put(`${league}:gamesMeta`, JSON.stringify({
+          count: body.games.length, asOfDate: body.asOfDate || today(),
         }));
         return cors.json({ ok: true, league, gameCount: body.games.length });
       }
@@ -2032,6 +2042,9 @@ const PUBLIC_HTML = `<!doctype html>
   // shows "Chain broken" instead of treating the last holder as a current
   // champion with a decades-long fictional reign.
   var BRANCH_TRUNCATION = null;  // null | { champ, breakDate, reignStart, undefeated, note }
+  // Dynamic "flip a real game" cascade (team sports). null when canonical.
+  var CASCADE = null;            // null | { label, flip, current }
+  var CASCADE_AVAILABLE = false; // whether this league has a game log uploaded
 
   function branchesForLeague(L) {
     return BRANCH_POINTS.filter(function(bp){ return bp.league === L; });
@@ -2128,15 +2141,29 @@ const PUBLIC_HTML = `<!doctype html>
 
   function renderWhatIfBadge() {
     var branches = branchesForLeague(league);
+    var teamSport = !isBoxingActive();
     var area = el('whatifArea');
     var banner = el('branchBanner');
     if (!area || !banner) return;
-    if (!branches.length) {
+    // Show the what-if entry point when there are curated branches (boxing) or
+    // this is a team sport with a game log uploaded (dynamic flip-and-cascade).
+    var showButton = branches.length || (teamSport && CASCADE_AVAILABLE);
+    if (!showButton) {
       area.style.display = 'none';
       banner.style.display = 'none';
       return;
     }
     area.style.display = '';
+    var btn = el('whatifBtn');
+    if (btn) btn.textContent = (teamSport && CASCADE_AVAILABLE)
+      ? '🔀 What if? — flip a game and watch the belt cascade'
+      : '🤔 What if? — explore alternate timelines';
+    // A live cascade takes precedence over curated branches in the banner.
+    if (CASCADE) {
+      banner.style.display = 'flex';
+      el('branchBannerText').textContent = 'Alternate timeline: ' + CASCADE.label;
+      return;
+    }
     var activeForLeague = ACTIVE_BRANCHES.filter(function(bid){
       var bp = BRANCH_POINTS.find(function(x){ return x.id === bid; });
       return bp && bp.league === league;
@@ -2154,6 +2181,9 @@ const PUBLIC_HTML = `<!doctype html>
   }
 
   function openWhatIfModal() {
+    // Team sports get the dynamic flip-and-cascade picker; boxing keeps the
+    // curated branch list.
+    if (!isBoxingActive() && CASCADE_AVAILABLE) { openCascadeModal(); return; }
     var branches = branchesForLeague(league);
     if (!branches.length) return;
     var body =
@@ -2188,6 +2218,101 @@ const PUBLIC_HTML = `<!doctype html>
         });
       });
     }, 0);
+  }
+
+  // ─── Dynamic "flip a real game" cascade (team sports) ───────────────────
+  async function checkCascadeAvailable(){
+    CASCADE_AVAILABLE = false;
+    if (isBoxingActive()) return;
+    try {
+      var r = await fetch('/api/whatif?league='+league+'&check=1');
+      if (r.ok) { var j = await r.json(); CASCADE_AVAILABLE = !!j.available; }
+    } catch(e) { CASCADE_AVAILABLE = false; }
+  }
+
+  async function openCascadeModal(){
+    showModal('What if? — rewrite a real game',
+      'Flip a game the champion actually won; the belt then follows what really happened next.',
+      '<div class="whatif-intro"><p>Loading games…</p></div>');
+    await loadEventsIfNeeded();
+    var champName = brandFor(CANONICAL_CHAMP).name;
+    // Current reign start = last canonical belt change TO the current champ.
+    var canon = CANONICAL_CHANGES || [];
+    var reignStart = null;
+    for (var i = canon.length - 1; i >= 0; i--) {
+      if (canon[i].to === CANONICAL_CHAMP) { reignStart = canon[i].date; break; }
+    }
+    var defenses = (EVENTS || []).filter(function(ev){
+      return ev.champ === CANONICAL_CHAMP && ev.result === 'W' && (!reignStart || ev.date >= reignStart);
+    }).sort(function(a, b){ return new Date(b.date) - new Date(a.date); });
+
+    var intro = '<div class="whatif-intro">'
+      + '<p>The current lineal champion is <strong>' + escapeHTML(champName) + '</strong>. '
+      + 'Pick one of their real wins and we’ll flip it — that opponent takes the belt, and from '
+      + 'there the title follows <em>actual results</em>: whoever really beat them next takes it, and so '
+      + 'on, right up to today.</p>'
+      + (CASCADE ? '<p style="font-size:12px;color:var(--text-dim)">An alternate timeline is active. Pick another game to replace it, or Reset from the banner above the tracker.</p>' : '')
+      + '</div>';
+    if (!defenses.length) {
+      showModal('What if? — rewrite a real game', '',
+        intro + '<p style="color:var(--text-dim)">No flippable wins found in this champion’s current reign.</p>');
+      return;
+    }
+    var rows = defenses.slice(0, 60).map(function(ev){
+      var opp = brandFor(ev.opponent);
+      var sc = (ev.champScore != null && ev.oppScore != null) ? ' · ' + ev.champScore + '–' + ev.oppScore : '';
+      return '<label class="whatif-row" data-game="' + escapeHTML(String(ev.gameId)) + '" data-opp="' + escapeHTML(opp.name) + '" data-date="' + ev.date + '">'
+        + '<div class="whatif-text">'
+        + '<div class="whatif-name">' + escapeHTML(champName) + ' def. ' + escapeHTML(opp.name) + '</div>'
+        + '<div class="whatif-summary">' + fmtDate(ev.date) + sc + '</div>'
+        + '<p>Flip it → ' + escapeHTML(opp.name) + ' win and take the belt.</p>'
+        + '</div></label>';
+    }).join('');
+    showModal('What if? — rewrite a real game',
+      defenses.length + ' win' + (defenses.length === 1 ? '' : 's') + ' in ' + champName + '’s current reign',
+      intro + '<div class="whatif-list">' + rows + '</div>');
+    setTimeout(function(){
+      document.querySelectorAll('.whatif-row[data-game]').forEach(function(row){
+        row.addEventListener('click', function(){
+          doCascade(row.getAttribute('data-game'), row.getAttribute('data-opp'),
+                    row.getAttribute('data-date'), champName);
+        });
+      });
+    }, 0);
+  }
+
+  async function doCascade(gameId, oppName, date, champName){
+    showModal('Rewriting history…', '',
+      '<div class="whatif-intro"><p>Re-running the belt through every game since '
+      + fmtDate(date) + '…</p></div>');
+    try {
+      var r = await fetch('/api/whatif?league=' + league + '&flip=' + encodeURIComponent(gameId));
+      var j = await r.json();
+      if (!r.ok || j.available === false) {
+        showModal('Not available yet', '',
+          '<p style="color:var(--text-dim)">' + escapeHTML((j && j.error) || 'The game log for this league hasn’t been generated yet.') + '</p>');
+        return;
+      }
+      CASCADE = { label: oppName + ' beat ' + champName + ', ' + fmtDate(date), flip: j.flip, current: j.current };
+      BRANCH_TRUNCATION = null;
+      DATA.changes = j.changes || [];
+      DATA.currentChamp = j.current;
+      closeModal();
+      renderHero(); renderStrip(); renderWhatIfBadge();
+      if (el('timeline').classList.contains('open')) renderTimeline();
+    } catch (e) {
+      showModal('Error', '', '<p style="color:var(--text-dim)">' + escapeHTML(e.message) + '</p>');
+    }
+  }
+
+  function resetWhatIf(){
+    if (CASCADE) {
+      CASCADE = null;
+      applyActiveBranches();   // restores DATA.changes from CANONICAL_CHANGES
+      rerenderForBranchChange();
+      return;
+    }
+    resetBranches();
   }
 
   function readBranchUrl() {
@@ -2313,6 +2438,7 @@ const PUBLIC_HTML = `<!doctype html>
       // without re-fetching, and so "Reset to canonical" always restores it.
       CANONICAL_CHANGES = (DATA.changes || []).slice();
       CANONICAL_CHAMP = DATA.currentChamp;
+      CASCADE = null;  // clear any alternate timeline when switching leagues
       // Adopt any branches encoded in the URL that apply to this league.
       ACTIVE_BRANCHES = readBranchUrl().filter(function(bid){
         return BRANCH_POINTS.some(function(bp){ return bp.id === bid; });
@@ -2322,6 +2448,9 @@ const PUBLIC_HTML = `<!doctype html>
       renderStrip();
       renderWhatIfBadge();
       if (el('timeline').classList.contains('open')) renderTimeline();
+      // Reveal the flip-and-cascade button once we confirm this league has a
+      // game log uploaded (cheap meta check; non-blocking so render isn't held).
+      checkCascadeAvailable().then(renderWhatIfBadge);
     } catch (e) {
       el('champName').textContent = 'Error';
       el('champSub').textContent = e.message;
@@ -2674,7 +2803,7 @@ const PUBLIC_HTML = `<!doctype html>
   });
   if (el('aboutBtn')) el('aboutBtn').addEventListener('click', function(){ location.href = '/'; });
   if (el('whatifBtn')) el('whatifBtn').addEventListener('click', openWhatIfModal);
-  if (el('branchReset')) el('branchReset').addEventListener('click', resetBranches);
+  if (el('branchReset')) el('branchReset').addEventListener('click', resetWhatIf);
   el('modalClose').addEventListener('click', closeModal);
   el('modalBack').addEventListener('click', function(e){
     if (e.target === el('modalBack')) closeModal();
