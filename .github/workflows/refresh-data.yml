@@ -36,7 +36,8 @@ jobs:
       matrix:
         league: [EPL, CFB, MLB, NFL]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60   # CFB's cold rebuild (per-season CFBD calls) needs headroom
+                          # to fully warm its cache; EPL/NFL/MLB finish in seconds.
     defaults:
       run:
         working-directory: linealchamp-data
