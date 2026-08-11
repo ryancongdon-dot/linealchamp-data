@@ -117,7 +117,7 @@ def _save_year(cache_dir: Path, year: int, season_type: str, data: list) -> None
     (cache_dir / f"{year}-{season_type}.json").write_text(json.dumps(data))
 
 
-def _fetch_year(year: int, season_type: str, cache_dir: Path) -> list:
+def _fetch_year(year: int, season_type: str, cache_dir: Path, _tries: int = 0) -> list:
     cached = _cached_year(cache_dir, year, season_type)
     if cached is not None:
         return cached
@@ -133,8 +133,12 @@ def _fetch_year(year: int, season_type: str, cache_dir: Path) -> list:
         timeout=30,
     )
     if r.status_code == 429:
-        time.sleep(5)
-        return _fetch_year(year, season_type, cache_dir)
+        # Bounded backoff — never loop forever on a persistent rate limit
+        # (that once hung a cold rebuild until the CI job timeout).
+        if _tries >= 5:
+            raise RuntimeError(f"CFBD rate-limited {year} {season_type} after {_tries} retries")
+        time.sleep(5 * (_tries + 1))
+        return _fetch_year(year, season_type, cache_dir, _tries + 1)
     r.raise_for_status()
     data = r.json() or []
     _save_year(cache_dir, year, season_type, data)
