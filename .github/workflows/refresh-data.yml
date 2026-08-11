@@ -10,22 +10,30 @@ name: Refresh lineal data
 #   EPL  football-data.co.uk CSVs                (current)
 #   CFB  collegefootballdata API                 (current)
 #   MLB  Retrosheet + MLB StatsAPI                (current)
-#   NFL  538 (1920-1998) + nflverse (1999+)       (current)
-#   NBA  538 (1946-2015 Finals) + ESPN (2015+)    (current)
-#   NHL  ESPN only, seeded at the 2021-22 season  (current; not yet 1917+)
+#   NFL  538 (1920-1998) + nflverse (1999+)            (current)
+#   NBA  538 (1946-2015 Finals) + balldontlie (2015+)  (current)
+#   NHL  api-web.nhle.com, seeded at the 2021-22 season (current; not yet 1917+)
 #
-# NBA/NHL's ESPN halves have a fail-fast circuit breaker (sources/nba.py,
-# sources/nhl.py): if ESPN is unreachable, the fetch bails out after a run of
+# NBA/NHL previously tried ESPN's site API for the "recent" half, but it turned
+# out to be blocked from BOTH this dev environment and GitHub Actions runners (a
+# real network block, not a fluke — confirmed via a live test run). Both now use
+# endpoints already proven reachable because the Worker's own live cron
+# (worker.js) uses them successfully every day: balldontlie for NBA, the NHL's
+# own api-web.nhle.com for NHL.
+#
+# Both still have a fail-fast circuit breaker (sources/nba.py, sources/nhl.py):
+# if a source is ever unreachable, the fetch bails out after a run of
 # consecutive failures rather than hanging, and the build falls back to
 # whatever historical base it has (538 for NBA) or reports "no games" (NHL,
-# which currently has no historical base — the MIN_CHANGES floor then blocks
-# the upload rather than shipping an empty chain).
+# which has no historical base yet — the MIN_CHANGES floor then blocks the
+# upload rather than shipping an empty chain).
 #
 # The MIN_CHANGES floor in upload_to_worker refuses to overwrite good data with
 # a gutted chain if a source ever hiccups, so a bad fetch fails safe.
 #
 # Required repository secrets:
 #   CFBD_API_KEY   collegefootballdata.com key (CFB)
+#   BDL_API_KEY    balldontlie.io key (NBA's 2015-today recent-season fetch)
 #   ADMIN_SECRET   the Worker's env.ADMIN_SECRET (authorizes the KV upload)
 
 on:
@@ -42,9 +50,9 @@ jobs:
       matrix:
         league: [EPL, CFB, MLB, NFL, NBA, NHL]
     runs-on: ubuntu-latest
-    timeout-minutes: 60   # CFB's cold rebuild (per-season CFBD calls) and NBA/NHL's
-                          # per-team-season ESPN fetch need headroom to fully warm
-                          # their caches; EPL/NFL/MLB finish in seconds.
+    timeout-minutes: 60   # CFB's cold rebuild (per-season CFBD calls) and NBA's
+                          # per-year balldontlie fetch need headroom to fully warm
+                          # their caches; EPL/NFL/MLB/NHL finish in seconds.
     defaults:
       run:
         working-directory: linealchamp-data
@@ -63,6 +71,7 @@ jobs:
       - name: Build lineage (${{ matrix.league }})
         env:
           CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+          BDL_API_KEY: ${{ secrets.BDL_API_KEY }}
         run: python build_lineage.py --leagues ${{ matrix.league }}
       - name: Upload to Worker KV (${{ matrix.league }})
         if: ${{ !cancelled() }}
