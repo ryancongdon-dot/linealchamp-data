@@ -7,13 +7,19 @@ name: Refresh lineal data
 # game log — so the "what if?" cascade stays current too, not just the belt.
 #
 # Leagues:
-#   EPL  football-data.co.uk CSVs           (current)
-#   CFB  collegefootballdata API            (current)
-#   MLB  Retrosheet + MLB StatsAPI          (current)
-#   NFL  538 (1920-1998) + nflverse (1999+) (current)
-# NBA and NHL are intentionally excluded until they have a live feed: NBA's 538
-# CSV is frozen at 2015 and NHL has no working free source yet, so a daily
-# rebuild would just re-upload identical data.
+#   EPL  football-data.co.uk CSVs                (current)
+#   CFB  collegefootballdata API                 (current)
+#   MLB  Retrosheet + MLB StatsAPI                (current)
+#   NFL  538 (1920-1998) + nflverse (1999+)       (current)
+#   NBA  538 (1946-2015 Finals) + ESPN (2015+)    (current)
+#   NHL  ESPN only, seeded at the 2021-22 season  (current; not yet 1917+)
+#
+# NBA/NHL's ESPN halves have a fail-fast circuit breaker (sources/nba.py,
+# sources/nhl.py): if ESPN is unreachable, the fetch bails out after a run of
+# consecutive failures rather than hanging, and the build falls back to
+# whatever historical base it has (538 for NBA) or reports "no games" (NHL,
+# which currently has no historical base — the MIN_CHANGES floor then blocks
+# the upload rather than shipping an empty chain).
 #
 # The MIN_CHANGES floor in upload_to_worker refuses to overwrite good data with
 # a gutted chain if a source ever hiccups, so a bad fetch fails safe.
@@ -34,10 +40,11 @@ jobs:
     strategy:
       fail-fast: false        # one league's hiccup must not block the others
       matrix:
-        league: [EPL, CFB, MLB, NFL]
+        league: [EPL, CFB, MLB, NFL, NBA, NHL]
     runs-on: ubuntu-latest
-    timeout-minutes: 60   # CFB's cold rebuild (per-season CFBD calls) needs headroom
-                          # to fully warm its cache; EPL/NFL/MLB finish in seconds.
+    timeout-minutes: 60   # CFB's cold rebuild (per-season CFBD calls) and NBA/NHL's
+                          # per-team-season ESPN fetch need headroom to fully warm
+                          # their caches; EPL/NFL/MLB finish in seconds.
     defaults:
       run:
         working-directory: linealchamp-data

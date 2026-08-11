@@ -38,13 +38,21 @@ DEFAULT_BASE = "https://linealchamp-api.ryan-congdon.workers.dev"
 # "chain" whose belt never left the 1871 seed team, and shipped it straight
 # over months of good data — the site showed Philadelphia Athletics (1871)
 # as current champion. Values are ~half of each league's known-good change
-# count (NBA 3130, MLB 9059, NHL 3368, CFB 316, NFL 538), so a legitimate
-# rebuild always clears the bar and a gutted one never does.
+# count (NBA 3130, MLB 9059, CFB 316, NFL 538), so a legitimate rebuild
+# always clears the bar and a gutted one never does.
+#
+# NHL is the exception: sources/nhl.py deliberately seeds the chain at the
+# 2021-22 season (no reliable 1917-era source is wired up yet — see that
+# file's docstring), so it has nowhere near the change count a full 1917+
+# chain would. 20 is a floor against a truly empty/broken build (ESPN
+# unreachable => 0 games => this never even gets called, per fetch_all_games),
+# not a "half of known-good" estimate — revisit upward once NHL has a full
+# season or two of real data to measure against.
 MIN_CHANGES = {
     "NBA": 1500,
     "NFL": 250,
     "MLB": 4000,
-    "NHL": 1500,
+    "NHL": 20,
     "EPL": 150,
     "CFB": 150,
 }
