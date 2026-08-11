@@ -1,26 +1,24 @@
 """
-NHL source — hockey-reference.com season schedules.
+NHL source — ESPN's public team-schedule API, live and self-updating.
 
-Why HR rather than NHL API: hockey-reference has every NHL game from 1917
-onward in a stable HTML table. The modern api-web.nhle.com is great for
-current-season data but is patchy / nonexistent for historical seasons. The
-Worker uses api-web for "today's games" (live updates) but the offline backfill
-gets the whole 1917→today history from HR in one go.
+hockey-reference.com (the previous source) now returns HTTP 403 to automated
+requests, and unlike NFL/NBA, no frozen historical CSV exists for NHL (538
+never published one; the NHL's own deep-history statsapi was retired in 2024).
 
-URL pattern: https://www.hockey-reference.com/leagues/NHL_<YEAR>_games.html
+Rather than ship a fragile 2000-2021 relocation map I can't verify from this
+environment (Atlanta -> Winnipeg, Phoenix -> Arizona -> Utah, etc. all inside
+that window), this source deliberately starts the chain at the **2021-22
+season** — the point the league settled at its current 32-team footprint
+(Seattle's expansion) — and lets it grow forward from there. It's a real,
+current, self-updating lineal chain; it just doesn't reach back to 1917 yet.
+Extending it backward is a separate, deliberate addition once a reliable bulk
+source for 1917-2021 is available (e.g. a committed CSV).
 
-Each page has TWO tables:
-    - id="games"          — regular season
-    - id="games_playoffs" — postseason
-
-Both tables share the same columns:
-    Date  Visitor  G  Home  G  ...  Att  LOG  Notes
-
-Crawl-delay: 3 seconds (HR robots.txt).
-
-Score notes: the H/V "G" (goals) columns are integers. If a game went to OT or
-shootout, HR still records the final winning goal, so we don't need special
-handling for those — the higher score wins, same as a regulation result.
+Team continuity: ESPN's `competitor.team.displayName` is read directly from
+each response rather than a hand-maintained name map, so a rebrand (e.g.
+Arizona Coyotes -> Utah Hockey Club, 2024) doesn't require a code change here
+— only the abbreviation-to-canonical-code map below needs one entry when a
+franchise's ESPN abbreviation itself changes.
 """
 
 from __future__ import annotations
@@ -29,105 +27,119 @@ import time
 from pathlib import Path
 
 import requests
-from bs4 import BeautifulSoup
 
 from lineage import Game, norm
-from sources.util import cache_is_complete
 
-SEED_TEAM = norm("MTL")  # Montreal Canadiens (Wanderers won the first game, but
-                          # franchise folded mid-season after their arena burned;
-                          # Canadiens are the conventional NHL lineal seed.)
-SEED_DATE = "1917-12-19"  # first NHL game played
+# No historical base to seed from — the chain seeds itself from the first
+# game in the fetch window (compute_lineage treats None as "auto-seed from
+# the first game's winner").
+SEED_TEAM = None
+SEED_DATE = "2021-10-01"  # 2021-22 season start (informational only)
 
-HR_URL_TMPL = "https://www.hockey-reference.com/leagues/NHL_{year}_games.html"
-CRAWL_DELAY = 3.0
-HEADERS = {
-    "User-Agent": "linealchamp-data/1.0 (https://linealchamp-api.ryan-congdon.workers.dev/ one-time historical backfill)"
-}
+ESPN_SCHEDULE = "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/{team}/schedule"
+HEADERS = {"User-Agent": "linealchamp-data/1.0 (historical backfill)"}
+
+# ESPN abbreviation -> canonical code. Only needed when a franchise's ESPN
+# abbreviation itself changed (Arizona Coyotes -> Utah, 2024); everything else
+# maps to itself.
+CANON = {"ARI": "UTAH"}
+
+# The 32 current ESPN NHL team abbreviations (stable since the 2021 Seattle
+# expansion); UTAH covers the Arizona-era abbreviation via CANON above.
+TEAMS = [
+    "ANA", "ARI", "BOS", "BUF", "CGY", "CAR", "CHI", "COL", "CBJ", "DAL",
+    "DET", "EDM", "FLA", "LA", "MIN", "MTL", "NSH", "NJ", "NYI", "NYR",
+    "OTT", "PHI", "PIT", "SJ", "SEA", "STL", "TB", "TOR", "VAN", "VGK",
+    "WSH", "WPG",
+]
+
+_TEAM_NAMES: dict[str, str] = {}
+
+# Same fail-fast circuit breaker as the NBA source: a short per-request
+# timeout, and bail out after a run of consecutive failures rather than
+# grinding through all ~32 x N requests if ESPN is unreachable.
+ESPN_TIMEOUT = 8
+CIRCUIT_BREAKER_FAILURES = 8
 
 
-def _cached_year_html(cache_dir: Path, year: int) -> Path:
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir / f"{year}.html"
+class _EspnUnreachable(Exception):
+    pass
 
 
-def _fetch_year_html(year: int, cache_dir: Path) -> str:
-    cf = _cached_year_html(cache_dir, year)
-    # HR pages are keyed by season-END year; the season (incl. the Stanley Cup
-    # Final) is over by July of that year. Only trust closed windows.
-    if cache_is_complete(cf, f"{year}-07-01"):
-        return cf.read_text(encoding="utf-8")
-    r = requests.get(HR_URL_TMPL.format(year=year), headers=HEADERS, timeout=30)
-    if r.status_code == 404:
-        return ""
+def _canon(abbr: str) -> str:
+    a = (abbr or "").strip().upper()
+    return CANON.get(a, a)
+
+
+def _espn_season_years(start: str, end: str) -> list[int]:
+    # ESPN labels an NHL season by the year it ENDS (e.g. "2021-22" -> 2022).
+    y0 = max(2022, int(start[:4]) + (1 if start[5:7] >= "07" else 0))
+    y1 = int(end[:4]) + 1
+    return list(range(y0, y1 + 1))
+
+
+def _fetch_team_season(team: str, season: int) -> list[dict]:
+    r = requests.get(
+        ESPN_SCHEDULE.format(team=team.lower()),
+        params={"season": season},
+        headers=HEADERS, timeout=ESPN_TIMEOUT,
+    )
     r.raise_for_status()
-    cf.write_text(r.text, encoding="utf-8")
-    time.sleep(CRAWL_DELAY)
-    return r.text
-
-
-def _parse_table(soup: BeautifulSoup, table_id: str, year: int) -> list[Game]:
-    table = soup.find("table", id=table_id)
-    if not table:
-        return []
-    tbody = table.find("tbody")
-    if not tbody:
-        return []
-    out: list[Game] = []
-    for i, tr in enumerate(tbody.find_all("tr")):
-        if tr.get("class") and "thead" in tr.get("class"):
-            continue
-        cells = {td.get("data-stat"): td for td in tr.find_all(["th", "td"])}
-        date_td = cells.get("date_game")
-        visitor_td = cells.get("visitor_team_name")
-        home_td = cells.get("home_team_name")
-        vg = cells.get("visitor_goals")
-        hg = cells.get("home_goals")
-
-        if not (date_td and visitor_td and home_td and vg and hg):
-            continue
-        v_name = visitor_td.get_text(strip=True)
-        h_name = home_td.get_text(strip=True)
-        v_text = vg.get_text(strip=True)
-        h_text = hg.get_text(strip=True)
-        if not (v_name and h_name and v_text and h_text):
-            continue
-        try:
-            v_score = int(v_text)
-            h_score = int(h_text)
-        except ValueError:
-            continue
-        date_txt = date_td.get_text(strip=True)
-        iso_date = f"{date_txt}T00:00:00Z" if len(date_txt) == 10 else f"{year}-10-01T00:00:00Z"
-        out.append(
-            Game(
-                id=f"HR-NHL-{year}-{table_id}-{i}",
-                date=iso_date,
-                home_id=norm(h_name),
-                away_id=norm(v_name),
-                home_score=h_score,
-                away_score=v_score,
-            )
-        )
-    return out
+    return (r.json() or {}).get("events") or []
 
 
 def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
-    y0 = int(start[:4])
-    y1 = int(end[:4]) + 1  # HR uses season-end year (2024-25 season → 2025)
     out: list[Game] = []
-    for y in range(y0, y1 + 1):
-        try:
-            html = _fetch_year_html(y, cache_dir)
-            if not html:
+    seen_ids: set[str] = set()
+    seasons = _espn_season_years(start, end)
+    consecutive_failures = 0
+    total_failures = 0
+    for team in TEAMS:
+        for season in seasons:
+            try:
+                events = _fetch_team_season(team, season)
+                consecutive_failures = 0
+            except Exception:
+                total_failures += 1
+                consecutive_failures += 1
+                if consecutive_failures >= CIRCUIT_BREAKER_FAILURES:
+                    print(f"  NHL: {consecutive_failures} consecutive ESPN failures — "
+                          f"ESPN unreachable, stopping early", flush=True)
+                    print(f"  NHL: {len(out)} games fetched before bail-out", flush=True)
+                    return out
                 continue
-            soup = BeautifulSoup(html, "html.parser")
-            reg = _parse_table(soup, "games", y)
-            post = _parse_table(soup, "games_playoffs", y)
-            year_games = reg + post
-            if year_games:
-                out.extend(g for g in year_games if start <= g.date[:10] <= end)
-                print(f"  NHL {y}: {len(reg)} reg + {len(post)} post", flush=True)
-        except Exception as exc:
-            print(f"  NHL {y} failed: {exc}", flush=True)
+            for ev in events:
+                try:
+                    comp = ev["competitions"][0]
+                    if not comp.get("status", {}).get("type", {}).get("completed"):
+                        continue
+                    date = (ev.get("date") or "")[:10]
+                    if not (start[:10] <= date <= end[:10]):
+                        continue
+                    competitors = comp["competitors"]
+                    home = next(c for c in competitors if c.get("homeAway") == "home")
+                    away = next(c for c in competitors if c.get("homeAway") == "away")
+                    h_abbr = _canon(home["team"]["abbreviation"])
+                    a_abbr = _canon(away["team"]["abbreviation"])
+                    h_id, a_id = norm(h_abbr), norm(a_abbr)
+                    _TEAM_NAMES[h_id] = home["team"].get("displayName", h_abbr)
+                    _TEAM_NAMES[a_id] = away["team"].get("displayName", a_abbr)
+                    gid = str(ev.get("id") or f"ESPN-NHL-{date}-{h_id}-{a_id}")
+                    if gid in seen_ids:
+                        continue
+                    seen_ids.add(gid)
+                    out.append(Game(id=gid, date=f"{date}T00:00:00Z",
+                                    home_id=h_id, away_id=a_id,
+                                    home_score=int(home["score"]), away_score=int(away["score"])))
+                except (KeyError, ValueError, StopIteration, TypeError):
+                    continue
+            time.sleep(0.15)
+    if total_failures:
+        print(f"  NHL: {total_failures} ESPN requests failed (non-fatal) — "
+              f"continuing with whatever succeeded", flush=True)
+    print(f"  NHL: {len(out)} games from ESPN (2021-22 season → today)", flush=True)
     return out
+
+
+def team_brand() -> dict:
+    return {code: {"name": name} for code, name in sorted(_TEAM_NAMES.items())}
