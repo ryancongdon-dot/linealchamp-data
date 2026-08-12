@@ -1,7 +1,6 @@
 """
-CFB source — collegefootballdata.com /games endpoint.
-
-Stable JSON API; user already has CFBD_API_KEY for the Worker, reuse it here.
+CFB source — a static GitHub-hosted archive for the bulk of history, live
+collegefootballdata.com (CFBD) API calls only for what the archive can't cover.
 
 Coverage: 1869+. Pre-1978 the `division` parameter is meaningless (there were
 no formal divisions), so we filter by an FBS-equivalent membership table. The
@@ -9,18 +8,27 @@ table is intentionally aggressive — when in doubt, include the program. The
 goal is to keep lineage from bouncing into FCS/D2/D3 programs that the user
 considers out of scope.
 
-Rate limit: the free CFBD tier caps at 1,000 requests per CALENDAR MONTH (per
-CFBD's own key-issuance email), not a per-minute/burst throttle. Once that's
-exhausted, every request 429s until the month rolls over — no amount of
-backoff or retrying will produce a different result. Per-year results are
-cached to disk forever (once a year's window has fully elapsed), so a single
-complete historical backfill costs ~314 requests and a warm-cache daily
-refresh costs ~2 (current season only) — comfortably under the monthly cap
-in steady state. The failure mode we hit was burning most of a month's quota
-during repeated same-day debugging/testing of this exact fetch, not steady
-state.
+Rate limit lesson: the free CFBD tier caps at 1,000 requests per CALENDAR
+MONTH (per CFBD's own key-issuance email), not a per-minute/burst throttle —
+confirmed live after two runs stalled on sustained 429s at the same year, 18
+hours apart. A single from-scratch historical pull needs ~314 requests
+(1869-present x regular/postseason), which alone is a third of the monthly
+budget; repeated same-day debugging of this exact fetch exhausted the rest.
 
-Response shape (per CFBD docs, /games endpoint):
+Fix: the sportsdataverse/cfbfastR project (the same "gather once" pattern
+already used for NFL/NBA in this repo) publishes CFBD's own game data as
+static per-season CSVs on GitHub — no API key, no rate limit, same schema
+CFBD returns live:
+    https://raw.githubusercontent.com/sportsdataverse/cfbfastR-data/main/schedules/csv/cfb_schedules_<year>.csv
+This covers ARCHIVE_MIN_YEAR (2001) through whatever season the project has
+last published (typically becomes available once that season wraps). Only
+1869-2000 (pre-archive) and the newest not-yet-archived season still need the
+live CFBD API — roughly ~264 requests once for the pre-2001 range (cached
+forever after) plus ~2/day for the current season top-up, comfortably under
+the monthly cap even from a cold cache.
+
+Response shape (per CFBD docs, /games endpoint — identical for the archive
+CSV and the live API):
     [
       {
         "id": 401403867,
@@ -43,6 +51,8 @@ and fall back to homePoints / awayPoints.
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 import os
 import time
@@ -59,6 +69,10 @@ SEED_DATE = "1869-11-06"
 
 CFBD_URL = "https://api.collegefootballdata.com/games"
 RATE_DELAY_SEC = 0.25  # be polite
+
+ARCHIVE_URL = ("https://raw.githubusercontent.com/sportsdataverse/cfbfastR-data/"
+               "main/schedules/csv/cfb_schedules_{year}.csv")
+ARCHIVE_MIN_YEAR = 2001  # earliest season the cfbfastR-data archive publishes
 
 # Programs we want to count toward the lineal-FBS lineage in pre-1978 years.
 # This includes all current FBS members + the major pre-1978 independents and
@@ -163,10 +177,72 @@ def _fetch_year(year: int, season_type: str, cache_dir: Path, _tries: int = 0) -
     return data
 
 
+def _archive_cache_path(cache_dir: Path, year: int) -> Path:
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir / f"archive-{year}.csv"
+
+
+def _fetch_archive_year(year: int, cache_dir: Path) -> Optional[list[dict]]:
+    """Static per-season CSV from the cfbfastR-data archive — no API key, no
+    rate limit. Returns None (not raises) if the year isn't archived yet, so
+    the caller can fall back to the live CFBD API for that one year only."""
+    cf = _archive_cache_path(cache_dir, year)
+    window_end = f"{year + 1}-01-31"  # postseason can spill into January
+    if cache_is_complete(cf, window_end):
+        text = cf.read_text(encoding="utf-8")
+    else:
+        r = requests.get(ARCHIVE_URL.format(year=year), timeout=30)
+        if r.status_code == 404:
+            return None
+        r.raise_for_status()
+        text = r.text
+        cf.write_text(text, encoding="utf-8")
+    return list(csv.DictReader(io.StringIO(text)))
+
+
 def _is_fbs_equivalent(team_name: str, year: int) -> bool:
     if year >= 1978:
         return True  # CFBD already filtered division=fbs upstream
     return norm(team_name) in PRE_1978_FBS_PROGRAMS
+
+
+def _extract_game(it: dict, y: int, start: str, end: str, filter_division: bool) -> Optional[Game]:
+    home = it.get("home_team") or it.get("homeTeam")
+    away = it.get("away_team") or it.get("awayTeam")
+    if not home or not away:
+        return None
+    if not _is_fbs_equivalent(home, y) or not _is_fbs_equivalent(away, y):
+        return None
+    if filter_division:
+        # Archive CSVs include every division; CFBD's live division=fbs param
+        # already narrows this on the API path, so only needed here.
+        hd = (it.get("home_division") or "").strip().lower()
+        ad = (it.get("away_division") or "").strip().lower()
+        if hd != "fbs" or ad != "fbs":
+            return None
+
+    hp = it.get("home_points")
+    if hp in (None, "", "NA"):
+        hp = it.get("homePoints")
+    ap = it.get("away_points")
+    if ap in (None, "", "NA"):
+        ap = it.get("awayPoints")
+    if hp in (None, "", "NA") or ap in (None, "", "NA"):
+        return None  # game not finished / no score recorded
+
+    date_str = it.get("start_date") or it.get("startDate") or f"{y}-09-01T00:00:00Z"
+    if date_str[:10] < start or date_str[:10] > end:
+        return None
+
+    gid = it.get("id") or it.get("game_id")
+    return Game(
+        id=f"CFBD-{gid}",
+        date=date_str,
+        home_id=norm(home),
+        away_id=norm(away),
+        home_score=int(float(hp)),
+        away_score=int(float(ap)),
+    )
 
 
 def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
@@ -175,8 +251,28 @@ def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
     out: list[Game] = []
     consecutive_failures = 0
     total_failures = 0
+    archive_years = 0
 
     for y in range(y0, y1 + 1):
+        archive_items: Optional[list[dict]] = None
+        if y >= ARCHIVE_MIN_YEAR:
+            try:
+                archive_items = _fetch_archive_year(y, cache_dir)
+            except Exception as exc:
+                print(f"  cfbfastR-data archive {y}: {exc} — falling back to live CFBD",
+                      flush=True)
+
+        if archive_items is not None:
+            archive_years += 1
+            consecutive_failures = 0
+            for it in archive_items:
+                g = _extract_game(it, y, start, end, filter_division=True)
+                if g is not None:
+                    out.append(g)
+            continue
+
+        # Not archived (pre-2001, or the newest not-yet-published season) —
+        # live CFBD API, same as before.
         for season_type in ("regular", "postseason"):
             try:
                 items = _fetch_year(y, season_type, cache_dir)
@@ -193,44 +289,14 @@ def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
                 continue
 
             for it in items:
-                home = it.get("home_team") or it.get("homeTeam")
-                away = it.get("away_team") or it.get("awayTeam")
-                if not home or not away:
-                    continue
-                # Pre-1978 FBS filter
-                if not _is_fbs_equivalent(home, y) or not _is_fbs_equivalent(away, y):
-                    continue
-
-                hp = it.get("home_points")
-                if hp is None:
-                    hp = it.get("homePoints")
-                ap = it.get("away_points")
-                if ap is None:
-                    ap = it.get("awayPoints")
-                if hp is None or ap is None:
-                    continue  # game not finished / no score recorded
-
-                date_str = (
-                    it.get("start_date")
-                    or it.get("startDate")
-                    or f"{y}-09-01T00:00:00Z"
-                )
-                if date_str[:10] < start or date_str[:10] > end:
-                    continue
-
-                out.append(
-                    Game(
-                        id=f"CFBD-{it.get('id')}",
-                        date=date_str,
-                        home_id=norm(home),
-                        away_id=norm(away),
-                        home_score=int(hp),
-                        away_score=int(ap),
-                    )
-                )
+                g = _extract_game(it, y, start, end, filter_division=False)
+                if g is not None:
+                    out.append(g)
 
         if y % 20 == 0 or y == y1:
             print(f"  CFBD: through {y} — {len(out)} games, {total_failures} failures so far",
                   flush=True)
 
+    print(f"  CFB: {len(out)} games ({archive_years} seasons from the cfbfastR-data archive, "
+          f"rest from live CFBD)", flush=True)
     return out
