@@ -139,6 +139,9 @@ def _fetch_year(year: int, season_type: str, cache_dir: Path, _tries: int = 0) -
             raise RuntimeError(f"CFBD rate-limited {year} {season_type} after {_tries} retries")
         time.sleep(5 * (_tries + 1))
         return _fetch_year(year, season_type, cache_dir, _tries + 1)
+    if r.status_code in (401, 403):
+        # Auth/quota failure — retrying other years won't help either.
+        raise RuntimeError(f"CFBD auth/quota error {r.status_code} for {year} {season_type}: {r.text[:200]}")
     r.raise_for_status()
     data = r.json() or []
     _save_year(cache_dir, year, season_type, data)
@@ -156,13 +159,23 @@ def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
     y0 = int(start[:4])
     y1 = int(end[:4])
     out: list[Game] = []
+    consecutive_failures = 0
+    total_failures = 0
 
     for y in range(y0, y1 + 1):
         for season_type in ("regular", "postseason"):
             try:
                 items = _fetch_year(y, season_type, cache_dir)
+                consecutive_failures = 0
             except Exception as exc:
-                print(f"  CFBD {y} {season_type}: {exc}")
+                total_failures += 1
+                consecutive_failures += 1
+                print(f"  CFBD {y} {season_type}: {exc}", flush=True)
+                if consecutive_failures >= 6:
+                    print(f"  CFB: {consecutive_failures} consecutive CFBD failures — "
+                          f"stopping early ({len(out)} games fetched so far, "
+                          f"{total_failures} total failures)", flush=True)
+                    return out
                 continue
 
             for it in items:
@@ -201,5 +214,9 @@ def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
                         away_score=int(ap),
                     )
                 )
+
+        if y % 20 == 0 or y == y1:
+            print(f"  CFBD: through {y} — {len(out)} games, {total_failures} failures so far",
+                  flush=True)
 
     return out
