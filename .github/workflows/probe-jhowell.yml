@@ -22,7 +22,13 @@ jobs:
         run: |
           echo "=== GET ScoresIndex.htm (first 200 lines) ==="
           curl -sS --max-time 20 "https://www.jhowell.net/cf/scores/ScoresIndex.htm" | head -200 || echo "CURL FAILED (index body)"
-      - name: Try a guessed per-year URL (1950)
+      - name: Fetch byname.htm (team index) — first 100 lines
         run: |
-          echo "=== HEAD guessed 1950scores.htm ==="
-          curl -sS -I --max-time 20 "https://www.jhowell.net/cf/scores/1950scores.htm" || echo "CURL FAILED (1950 guess)"
+          echo "=== GET byname.htm (first 100 lines) ==="
+          curl -sS --max-time 20 "https://www.jhowell.net/cf/scores/byname.htm" | head -100 || echo "CURL FAILED (byname)"
+      - name: Try a Notre Dame team page and print its content
+        run: |
+          echo "=== HEAD guessed ND.htm ==="
+          curl -sS -I --max-time 20 "https://www.jhowell.net/cf/scores/ND.htm" || echo "CURL FAILED (ND.htm HEAD)"
+          echo "=== GET Sked1950.htm (guessed per-year schedule page) ==="
+          curl -sS --max-time 20 "https://www.jhowell.net/cf/scores/Sked1950.htm" | head -150 || echo "CURL FAILED (Sked1950)"
