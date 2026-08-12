@@ -252,6 +252,9 @@ def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
     consecutive_failures = 0
     total_failures = 0
     archive_years = 0
+    cfbd_exhausted = False  # tripped once; skip further live-CFBD attempts,
+                             # but keep going for archive-covered years — a
+                             # dead CFBD key must not block 2001+ at all.
 
     for y in range(y0, y1 + 1):
         archive_items: Optional[list[dict]] = None
@@ -264,7 +267,6 @@ def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
 
         if archive_items is not None:
             archive_years += 1
-            consecutive_failures = 0
             for it in archive_items:
                 g = _extract_game(it, y, start, end, filter_division=True)
                 if g is not None:
@@ -273,6 +275,8 @@ def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
 
         # Not archived (pre-2001, or the newest not-yet-published season) —
         # live CFBD API, same as before.
+        if cfbd_exhausted:
+            continue
         for season_type in ("regular", "postseason"):
             try:
                 items = _fetch_year(y, season_type, cache_dir)
@@ -283,15 +287,18 @@ def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
                 print(f"  CFBD {y} {season_type}: {exc}", flush=True)
                 if consecutive_failures >= 3:
                     print(f"  CFB: {consecutive_failures} consecutive CFBD failures — "
-                          f"stopping early ({len(out)} games fetched so far, "
-                          f"{total_failures} total failures)", flush=True)
-                    return out
+                          f"giving up on live CFBD for this run ({len(out)} games so far); "
+                          f"still trying archive-covered years", flush=True)
+                    cfbd_exhausted = True
+                    break
                 continue
-
-            for it in items:
-                g = _extract_game(it, y, start, end, filter_division=False)
-                if g is not None:
-                    out.append(g)
+            else:
+                for it in items:
+                    g = _extract_game(it, y, start, end, filter_division=False)
+                    if g is not None:
+                        out.append(g)
+        if cfbd_exhausted:
+            continue
 
         if y % 20 == 0 or y == y1:
             print(f"  CFBD: through {y} — {len(out)} games, {total_failures} failures so far",
