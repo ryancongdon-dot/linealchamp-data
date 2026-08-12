@@ -9,6 +9,17 @@ table is intentionally aggressive — when in doubt, include the program. The
 goal is to keep lineage from bouncing into FCS/D2/D3 programs that the user
 considers out of scope.
 
+Rate limit: the free CFBD tier caps at 1,000 requests per CALENDAR MONTH (per
+CFBD's own key-issuance email), not a per-minute/burst throttle. Once that's
+exhausted, every request 429s until the month rolls over — no amount of
+backoff or retrying will produce a different result. Per-year results are
+cached to disk forever (once a year's window has fully elapsed), so a single
+complete historical backfill costs ~314 requests and a warm-cache daily
+refresh costs ~2 (current season only) — comfortably under the monthly cap
+in steady state. The failure mode we hit was burning most of a month's quota
+during repeated same-day debugging/testing of this exact fetch, not steady
+state.
+
 Response shape (per CFBD docs, /games endpoint):
     [
       {
@@ -133,11 +144,14 @@ def _fetch_year(year: int, season_type: str, cache_dir: Path, _tries: int = 0) -
         timeout=30,
     )
     if r.status_code == 429:
-        # Bounded backoff — never loop forever on a persistent rate limit
-        # (that once hung a cold rebuild until the CI job timeout).
-        if _tries >= 5:
-            raise RuntimeError(f"CFBD rate-limited {year} {season_type} after {_tries} retries")
-        time.sleep(5 * (_tries + 1))
+        # Short, cheap retry only — CFBD's free tier is a 1,000/calendar-month
+        # cap, not a burst throttle, so a persistent 429 almost always means
+        # the month's quota is gone and no amount of backoff will change that.
+        # A long escalating backoff here just burns CI minutes for nothing
+        # (previously up to 75s/year, 6.5h worst case across a full history).
+        if _tries >= 1:
+            raise RuntimeError(f"CFBD rate-limited {year} {season_type} after {_tries + 1} tries")
+        time.sleep(3)
         return _fetch_year(year, season_type, cache_dir, _tries + 1)
     if r.status_code in (401, 403):
         # Auth/quota failure — retrying other years won't help either.
@@ -171,7 +185,7 @@ def fetch_all_games(start: str, end: str, cache_dir: Path) -> list[Game]:
                 total_failures += 1
                 consecutive_failures += 1
                 print(f"  CFBD {y} {season_type}: {exc}", flush=True)
-                if consecutive_failures >= 6:
+                if consecutive_failures >= 3:
                     print(f"  CFB: {consecutive_failures} consecutive CFBD failures — "
                           f"stopping early ({len(out)} games fetched so far, "
                           f"{total_failures} total failures)", flush=True)
